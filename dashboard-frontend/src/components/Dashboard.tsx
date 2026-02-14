@@ -100,6 +100,7 @@ function Dashboard() {
   const trendChartData = {
     labels: trendData.map((d) => {
         const date = new Date(d.time!)
+        if (isNaN(date.getTime())) return 'Unknown'
         return period === 'hourly' 
             ? date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
             : date.toLocaleDateString()

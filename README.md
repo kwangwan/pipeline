@@ -22,18 +22,26 @@
    ```bash
    echo "AIRFLOW_UID=$(id -u)" > .env
    ```
-3. 서비스 빌드 및 시작 (커스텀 Airflow 이미지 및 **Ollama** 포함):
+4. **환경 변수 구성**: `.env.example` 파일을 `.env`로 복사하거나 내용을 추가하여 설정을 구성합니다.
+   - `OLLAMA_HOST`: Ollama 서버 주소 (기본값: `http://ollama:11434`)
+   - `SUMMARIZATION_MODEL`: 사용할 LLM 모델 (기본값: `gemma3:4b`)
+   - `SUMMARIZER_BATCH_SIZE`: 한 번에 요약할 기사 수 (기본값: `3`)
+   - `CONTENT_COLLECTOR_BATCH_SIZE`: 한 번에 수집할 본문 수 (기본값: `100`)
+   - `CONTENT_COLLECTOR_MAX_ACTIVE_RUNS`: 본문 수집기 동시 실행 수 (기본값: `2`)
+
+5. 서비스 빌드 및 시작 (커스텀 Airflow 이미지 및 **Ollama** 포함):
+   - `.env` 파일에 필요한 설정(모델명, 배치 크기 등)을 확인하거나 수정합니다.
    ```bash
    docker compose up -d --build
    ```
-4. **Ollama 모델 다운로드 (필수)**:
+6. **Ollama 모델 다운로드 (필수)**:
    ```bash
    docker exec -it pipeline-ollama-1 ollama pull gemma3:4b
    ```
-5. Airflow 웹 UI 접속: [http://localhost:8080](http://localhost:8080)
+7. Airflow 웹 UI 접속: [http://localhost:8080](http://localhost:8080)
    - **ID**: `airflow`
    - **PW**: `airflow`
-6. 뉴스 데이터 대시보드 접속: [http://localhost:3000](http://localhost:3000)
+8. 뉴스 데이터 대시보드 접속: [http://localhost:3000](http://localhost:3000)
    - 수집된 기사의 요약문과 통계를 확인할 수 있습니다.
    - **시계열 전환**: 데이터 수집 시간(`Created At`) 또는 기사 발행 시간(`Article Date`) 기준으로 차트를 전환하여 볼 수 있습니다.
 
@@ -97,7 +105,7 @@
 - **주요 특징**:
     - **독립적 스케줄링**: 트리거 방식 대신 독립적인 스케줄에 따라 실행되어, 본문 수집량에 영향을 받지 않고 안정적으로 백로그를 처리합니다.
     - **최신순 우선순위**: 기사 발행일(`article_date`) 기준 최신 기사를 먼저 요약하여 대시보드에 최신 정보를 빠르게 반영합니다.
-    - **대량 배치 처리**: 효율적인 처리를 위해 한 번에 50건(`BATCH_SIZE = 50`)씩 묶어서 처리합니다.
+    - **대량 배치 처리**: 효율적인 처리를 위해 배치 크기를 지정하여 묶어서 처리합니다. (`.env`의 `SUMMARIZER_BATCH_SIZE` 설정 사용)
     - **연속 동작**: 처리해야 할 기사가 남아 있을 경우 루프를 돌며 즉시 요약을 이어나갑니다.
     - **Ollama**: 로컬 LLM 서버인 Ollama를 활용하여 외부 API 키 없이 요약을 수행합니다.
     - **언어 일치**: 원문이 한국어면 한국어 요약, 영어면 영어 요약을 생성합니다.

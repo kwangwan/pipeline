@@ -32,7 +32,7 @@ graph TD
 - **DAGs**:
     - `naver_news_crawler_scheduled`: 매시간 실행되어 오늘/어제 뉴스를 수집합니다.
     - `naver_news_crawler_backfill`: 사용자가 요청한 기간의 뉴스를 역순으로 수집합니다.
-    - `naver_news_content_collector_dag`: 본문이 없는 기사의 내용을 채우는 수집기입니다. (연속 수집 및 잠금 메커니즘 지원)
+    - `naver_news_content_collector_dag`: 본문이 없는 기사의 내용을 채우는 수집기입니다. (`.env`의 `CONTENT_COLLECTOR_BATCH_SIZE` 및 `MAX_ACTIVE_RUNS` 설정 사용)
     - `naver_news_summarizer_dag`: 본문 수집이 완료된 기사를 **Ollama(Gemma 3)**를 통해 요약합니다. (독립적 스케줄, 대량 배치, 최신순 처리 지원)
 - **Plugins**: `naver_news_crawler_utils.py`에 공통 크롤링 로직이 캡슐화되어 있어 유지보수성을 높였습니다.
 - **Prisma Studio**: Docker 컨테이너로 실행되는 모던한 데이터베이스 GUI입니다. 별도의 인증 없이 로컬 환경에서 수집된 뉴스 데이터를 직관적으로 탐색하고 관리할 수 있습니다. (Port 5555)
@@ -70,7 +70,7 @@ graph TD
 7. **기사 요약 (비동기 & 독립 운영)**:
     - **스케줄 기반 실행**: 트리거 대신 독립적인 스케줄에 따라 실행되어 안정적으로 백로그를 소화합니다.
     - **최신순 우선순위**: `ORDER BY article_date DESC`를 통해 가장 최근 기사부터 요약을 생성합니다.
-    - **대량 배치**: 효율적인 처리를 위해 한 번에 50건씩(`BATCH_SIZE = 50`) 묶어서 작업을 수행합니다.
+    - **대량 배치**: 효율적인 처리를 위해 배치 크기를 지정하여 묶어서 작업을 수행합니다. (`.env`의 `SUMMARIZER_BATCH_SIZE` 설정 사용)
     - **연속 수행**: 처리 대기 중인 모든 기사를 마칠 때까지 루프를 돌며 즉시 요약을 이어나갑니다.
     - **Ollama API**: 워커는 로컬 Ollama 서버에 본문을 전달하여 요약문을 생성합니다.
     - **저장**: 생성된 요약문과 모델 정보를 `summary`, `summary_model` 컬럼에 업데이트합니다.

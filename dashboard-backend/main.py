@@ -108,6 +108,7 @@ def get_trend(
         SELECT date_trunc(:trunc, {date_field}) as time, count(*) 
         FROM naver_news_articles 
         {where_clause}
+        {"AND" if where_clause else "WHERE"} {date_field} IS NOT NULL
         GROUP BY time 
         ORDER BY time ASC
     """)

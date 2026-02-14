@@ -3,6 +3,7 @@ import logging
 import json
 import requests
 import time
+import os
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
@@ -21,15 +22,15 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
 }
 
-OLLAMA_HOST = Variable.get("OLLAMA_HOST", default_var="http://ollama:11434")
-SUMMARIZATION_MODEL = "gemma3:4b"
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://ollama:11434")
+SUMMARIZATION_MODEL = os.getenv("SUMMARIZATION_MODEL", "gemma3:4b")
 
 def summarize_articles(**kwargs):
     pg_hook = PostgresHook(postgres_conn_id='postgres_default')
     conn = pg_hook.get_conn()
     cursor = conn.cursor()
     
-    BATCH_SIZE = 10
+    BATCH_SIZE = int(os.getenv("SUMMARIZER_BATCH_SIZE", 3))
     
     while True:
         # Lock articles that are COMPLETED (content exists) but not yet summarized
@@ -41,7 +42,7 @@ def summarize_articles(**kwargs):
                     WHERE collection_status = 'COMPLETED'
                       AND summary IS NULL
                       AND content IS NOT NULL
-                    ORDER BY article_date DESC
+                    ORDER BY article_date DESC NULLS LAST
                     LIMIT %s
                     FOR UPDATE SKIP LOCKED
                 )

@@ -3,6 +3,7 @@ import logging
 import sys
 import subprocess
 import time
+import os
 import trafilatura
 
 from airflow import DAG
@@ -27,7 +28,7 @@ def collect_news_content(**kwargs):
     cursor = conn.cursor()
     
     # Configuration
-    BATCH_SIZE = 100
+    BATCH_SIZE = int(os.getenv("CONTENT_COLLECTOR_BATCH_SIZE", 100))
     
     while True:
         # 1. Lock articles to process
@@ -137,7 +138,7 @@ with DAG(
     description='Collect article content using Trafilatura',
     schedule_interval='*/10 * * * *', # Run every 10 minutes
     catchup=False,
-    max_active_runs=2, # Limit to 2 concurrent bots as requested
+    max_active_runs=int(os.getenv("CONTENT_COLLECTOR_MAX_ACTIVE_RUNS", 2)), # Limit concurrent bots
     tags=['news', 'naver', 'content'],
 ) as dag:
 
@@ -146,11 +147,3 @@ with DAG(
         python_callable=collect_news_content,
         provide_context=True,
     )
-
-    trigger_summarizer = TriggerDagRunOperator(
-        task_id='trigger_naver_news_summarizer',
-        trigger_dag_id='naver_news_summarizer_dag',
-        wait_for_completion=False,
-    )
-
-    collect_task >> trigger_summarizer

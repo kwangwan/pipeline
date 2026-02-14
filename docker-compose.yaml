@@ -16,7 +16,11 @@ x-airflow-common:
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
     AIRFLOW__METRICS__STATSD_ON: 'false'
-    OLLAMA_HOST: 'http://ollama:11434'
+    OLLAMA_HOST: ${OLLAMA_HOST:-http://ollama:11434}
+    SUMMARIZATION_MODEL: ${SUMMARIZATION_MODEL:-gemma3:4b}
+    SUMMARIZER_BATCH_SIZE: ${SUMMARIZER_BATCH_SIZE:-3}
+    CONTENT_COLLECTOR_BATCH_SIZE: ${CONTENT_COLLECTOR_BATCH_SIZE:-100}
+    CONTENT_COLLECTOR_MAX_ACTIVE_RUNS: ${CONTENT_COLLECTOR_MAX_ACTIVE_RUNS:-2}
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
