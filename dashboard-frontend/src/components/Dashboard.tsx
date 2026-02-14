@@ -44,6 +44,9 @@ interface SummaryStats {
     total: number
     success: number
     failed: number
+    collected: number
+    summarized: number
+    uploaded: number
 }
 
 function Dashboard() {
@@ -51,14 +54,27 @@ function Dashboard() {
   const [publisherData, setPublisherData] = useState<StatItem[]>([])
   const [sectionData, setSectionData] = useState<StatItem[]>([])
   const [period, setPeriod] = useState<'hourly' | 'daily'>('daily')
-  const [summary, setSummary] = useState<SummaryStats>({ total: 0, success: 0, failed: 0 })
+  const [summary, setSummary] = useState<SummaryStats>({ 
+    total: 0, 
+    success: 0, 
+    failed: 0,
+    collected: 0,
+    summarized: 0,
+    uploaded: 0
+  })
   const [filters, setFilters] = useState<FilterOptions>({ publishers: [], sections: [] })
   
   // Filter States
   const [selectedPublisher, setSelectedPublisher] = useState('')
   const [selectedSection, setSelectedSection] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 30)
+    return d.toISOString().split('T')[0]
+  })
+  const [endDate, setEndDate] = useState(() => {
+    return new Date().toISOString().split('T')[0]
+  })
   const [dateField, setDateField] = useState<'created_at' | 'article_date'>('created_at')
 
   useEffect(() => {
@@ -79,7 +95,10 @@ function Dashboard() {
   }
 
   const fetchData = () => {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
       const params = new URLSearchParams()
+      params.append('timezone', timezone)
+      
       if (period) params.append('period', period)
       if (selectedPublisher) params.append('publisher', selectedPublisher)
       if (selectedSection) params.append('section', selectedSection)
@@ -138,6 +157,24 @@ function Dashboard() {
         ],
       },
     ],
+  }
+
+  const ProgressBar = ({ label, current, total, color }: { label: string, current: number, total: number, color: string }) => {
+    const percentage = total > 0 ? Math.min(Math.round((current / total) * 100), 100) : 0
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="flex justify-between text-sm font-medium">
+          <span className="text-slate-400">{label}</span>
+          <span className="text-slate-100">{current.toLocaleString()} / {total.toLocaleString()} ({percentage}%)</span>
+        </div>
+        <div className="h-2 w-full bg-slate-700 rounded-full overflow-hidden">
+          <div 
+            className={`h-full ${color} transition-all duration-500 ease-out`} 
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -207,14 +244,41 @@ function Dashboard() {
           <button 
             className="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded text-white ml-auto"
             onClick={() => {
-                setStartDate('')
-                setEndDate('')
+                const d = new Date()
+                d.setDate(d.getDate() - 30)
+                setStartDate(d.toISOString().split('T')[0])
+                setEndDate(new Date().toISOString().split('T')[0])
                 setSelectedPublisher('')
                 setSelectedSection('')
             }}
           >
               Reset Filters
           </button>
+      </div>
+
+      {/* Progress Bars */}
+      <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg space-y-6">
+        <h2 className="text-xl font-semibold text-slate-200 mb-2">Processing Progress</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <ProgressBar 
+                label="Article Collection" 
+                current={summary.collected} 
+                total={summary.total} 
+                color="bg-sky-500" 
+            />
+            <ProgressBar 
+                label="Summarization" 
+                current={summary.summarized} 
+                total={summary.collected} 
+                color="bg-emerald-500" 
+            />
+            <ProgressBar 
+                label="Upload Status" 
+                current={summary.uploaded} 
+                total={summary.summarized} 
+                color="bg-indigo-500" 
+            />
+        </div>
       </div>
 
       {/* Summary Cards */}

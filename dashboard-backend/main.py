@@ -27,10 +27,19 @@ def build_filter_clause(
     section: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    date_field: str = "created_at"
-) -> (str, Dict[str, Any]):
+    date_field: str = "created_at",
+    timezone: str = "UTC"
+) -> (str, Dict[str, Any], str):
     conditions = []
-    params = {}
+    params = {"tz": timezone}
+
+    # Define how to access the localized version of the date field
+    if date_field == "created_at":
+        # created_at is stored in UTC
+        localized_field = f"({date_field} AT TIME ZONE 'UTC' AT TIME ZONE :tz)"
+    else:
+        # article_date is naive but represents KST (Asia/Seoul)
+        localized_field = f"({date_field} AT TIME ZONE 'Asia/Seoul' AT TIME ZONE :tz)"
 
     if publisher:
         conditions.append("publisher = :publisher")
@@ -39,11 +48,10 @@ def build_filter_clause(
         conditions.append("section_id1 = :section")
         params["section"] = section
     if start_date:
-        conditions.append(f"{date_field} >= :start_date")
+        conditions.append(f"{localized_field}::date >= :start_date")
         params["start_date"] = start_date
     if end_date:
-        # Assuming end_date encompasses the whole day, add 1 day or use <= combined with time
-        conditions.append(f"{date_field} <= :end_date")
+        conditions.append(f"{localized_field}::date <= :end_date")
         params["end_date"] = end_date
 
     clause = " AND ".join(conditions)
@@ -51,13 +59,12 @@ def build_filter_clause(
         clause = "WHERE " + clause
     else:
         # Default time window if no specific date range is provided to avoid querying everything
-        # Applying default only if using created_at to avoid confusion with historical data
         if not start_date and not end_date and date_field == "created_at":
-             clause = "WHERE created_at >= NOW() - INTERVAL '30 days'"
+             clause = f"WHERE {localized_field} >= (NOW() AT TIME ZONE :tz) - INTERVAL '30 days'"
         else:
-             clause = "" # start or end provided, or using article_date, trust the input
+             clause = ""
     
-    return clause, params
+    return clause, params, localized_field
 
 @app.get("/stats/summary")
 def get_summary(
@@ -65,20 +72,19 @@ def get_summary(
     section: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    timezone: str = Query("UTC"),
     db: Session = Depends(get_db)
 ):
-    where_clause, params = build_filter_clause(publisher, section, start_date, end_date)
-    
-    # Total count
-    # Success count (collection_status = 'COMPLETED' or similar, schema says 'PENDING' default. 
-    # Let's assume 'COMPLETED' or fail_reason IS NULL as success for now, or check distinct statuses)
-    # Checking schema: collection_status String? @default("PENDING")
+    where_clause, params, _ = build_filter_clause(publisher, section, start_date, end_date, timezone=timezone)
     
     query = text(f"""
         SELECT 
             count(*) as total,
             count(*) FILTER (WHERE collection_status = 'COMPLETED') as success,
-            count(*) FILTER (WHERE collection_status = 'FAILED' OR fail_reason IS NOT NULL) as failed
+            count(*) FILTER (WHERE collection_status = 'FAILED' OR fail_reason IS NOT NULL) as failed,
+            count(*) FILTER (WHERE collection_status = 'COMPLETED') as collected,
+            count(*) FILTER (WHERE summary IS NOT NULL) as summarized,
+            count(*) FILTER (WHERE doc_id IS NOT NULL) as uploaded
         FROM naver_news_articles
         {where_clause}
     """)
@@ -87,7 +93,10 @@ def get_summary(
     return {
         "total": result[0],
         "success": result[1],
-        "failed": result[2]
+        "failed": result[2],
+        "collected": result[3],
+        "summarized": result[4],
+        "uploaded": result[5]
     }
 
 @app.get("/stats/trend")
@@ -98,14 +107,15 @@ def get_trend(
     section: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    timezone: str = Query("UTC"),
     db: Session = Depends(get_db)
 ):
-    where_clause, params = build_filter_clause(publisher, section, start_date, end_date, date_field)
+    where_clause, params, localized_field = build_filter_clause(publisher, section, start_date, end_date, date_field, timezone)
     
     trunc_date = 'hour' if period == 'hourly' else 'day'
     
     query = text(f"""
-        SELECT date_trunc(:trunc, {date_field}) as time, count(*) 
+        SELECT date_trunc(:trunc, {localized_field}) as time, count(*) 
         FROM naver_news_articles 
         {where_clause}
         {"AND" if where_clause else "WHERE"} {date_field} IS NOT NULL
@@ -122,9 +132,10 @@ def get_publisher_stats(
     section: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    timezone: str = Query("UTC"),
     db: Session = Depends(get_db)
 ):
-    where_clause, params = build_filter_clause(None, section, start_date, end_date)
+    where_clause, params, _ = build_filter_clause(None, section, start_date, end_date, timezone=timezone)
     if where_clause:
         where_clause += " AND publisher IS NOT NULL"
     else:
@@ -146,9 +157,10 @@ def get_section_stats(
     publisher: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    timezone: str = Query("UTC"),
     db: Session = Depends(get_db)
 ):
-    where_clause, params = build_filter_clause(publisher, None, start_date, end_date)
+    where_clause, params, _ = build_filter_clause(publisher, None, start_date, end_date, timezone=timezone)
     if where_clause:
         where_clause += " AND section_id1 IS NOT NULL"
     else:

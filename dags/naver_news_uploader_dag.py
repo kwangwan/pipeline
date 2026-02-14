@@ -72,6 +72,14 @@ def upload_summarized_articles(**kwargs):
                 try:
                     # Prepare payload
                     # Content is limited to 2000 chars (summary is already limited in summarizer)
+                    
+                    # article_date is naive but represents KST. Add timezone info for correct API interpretation.
+                    formatted_date = None
+                    if article_date:
+                        # Add KST timezone (+09:00)
+                        kst_date = article_date.replace(tzinfo=timedelta(hours=9))
+                        formatted_date = kst_date.isoformat()
+
                     payload = {
                         "categoryId": SEARCH_CATEGORY_ID,
                         "content": summary,
@@ -81,7 +89,7 @@ def upload_summarized_articles(**kwargs):
                             "original_url": original_url,
                             "publisher": publisher
                         },
-                        "date": article_date.isoformat() if article_date else None
+                        "date": formatted_date
                     }
 
                     # Call Search API
