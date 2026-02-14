@@ -1,0 +1,8 @@
+logs/
+plugins/
+.env
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+postgres_data/
