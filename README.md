@@ -110,6 +110,15 @@
     - **Ollama**: 로컬 LLM 서버인 Ollama를 활용하여 외부 API 키 없이 요약을 수행합니다.
     - **언어 일치**: 원문이 한국어면 한국어 요약, 영어면 영어 요약을 생성합니다.
     - **글자 수 제약**: 최대 2000자 이내로 요약하며, 사용된 모델 정보를 함께 기록합니다.
+113: 
+114: #### 5. 검색 API 업로드 (Article Uploader)
+115: - **DAG ID**: `naver_news_uploader_dag`
+116: - **동작**: 요약이 완료된 기사를 외부 **Project RAG** 검색 API로 자동으로 업로드합니다.
+117: - **주요 특징**:
+118:     - **주기적 실행**: 5분마다 실행되어 요약은 완료되었으나 아직 업로드되지 않은 기사를 처리합니다.
+119:     - **메타데이터 포함**: 기사 ID, 제목, 원본 URL, 언론사 정보를 문서 메타데이터로 함께 전송하여 검색 결과의 활용도를 높입니다.
+120:     - **상태 동기화**: 업로드 성공 시 API로부터 반환받은 문서 ID(`doc_id`)를 데이터베이스에 기록하여 중복 업로드를 방지합니다.
+121:     - **안전한 데이터 전송**: `FOR UPDATE SKIP LOCKED`를 통해 여러 워커가 동시에 작업해도 데이터 충돌 없이 안전하게 전송합니다.
 
 ---
 
@@ -119,6 +128,7 @@
     - `naver_news_crawler_backfill.py`: 과거 데이터 수집 DAG
     - `naver_news_content_collector_dag.py`: 본문 수집 DAG
     - `naver_news_summarizer_dag.py`: 기사 요약 DAG
+    - `naver_news_uploader_dag.py`: 검색 API 업로드 DAG
 - `dashboard-backend/`: 대시보드 백엔드 API (FastAPI)
 - `dashboard-frontend/`: 대시보드 프론트엔드 (React + Vite)
 - `prisma/`: Prisma ORM 설정 및 데이터베이스 스키마

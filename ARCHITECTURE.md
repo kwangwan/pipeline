@@ -17,6 +17,7 @@ graph TD
     Worker --> NewsDB[(Postgres 기사 저장소)]
     Worker --> NaverNews[네이버 뉴스 API/웹]
     Worker --> Ollama[Ollama LLM Server]
+    Worker --> SearchAPI[Project RAG Search API]
     
     DashboardFE[Dashboard Frontend] --> DashboardBE[Dashboard Backend]
     DashboardBE --> NewsDB
@@ -34,6 +35,7 @@ graph TD
     - `naver_news_crawler_backfill`: 사용자가 요청한 기간의 뉴스를 역순으로 수집합니다.
     - `naver_news_content_collector_dag`: 본문이 없는 기사의 내용을 채우는 수집기입니다. (`.env`의 `CONTENT_COLLECTOR_BATCH_SIZE` 및 `MAX_ACTIVE_RUNS` 설정 사용)
     - `naver_news_summarizer_dag`: 본문 수집이 완료된 기사를 **Ollama(Gemma 3)**를 통해 요약합니다. (독립적 스케줄, 대량 배치, 최신순 처리 지원)
+    - `naver_news_uploader_dag`: 요약된 기사를 외부 검색 API로 업로드하고 수신된 `doc_id`를 기록합니다. (5분 주기 실행)
 - **Plugins**: `naver_news_crawler_utils.py`에 공통 크롤링 로직이 캡슐화되어 있어 유지보수성을 높였습니다.
 - **Prisma Studio**: Docker 컨테이너로 실행되는 모던한 데이터베이스 GUI입니다. 별도의 인증 없이 로컬 환경에서 수집된 뉴스 데이터를 직관적으로 탐색하고 관리할 수 있습니다. (Port 5555)
 
@@ -74,6 +76,10 @@ graph TD
     - **연속 수행**: 처리 대기 중인 모든 기사를 마칠 때까지 루프를 돌며 즉시 요약을 이어나갑니다.
     - **Ollama API**: 워커는 로컬 Ollama 서버에 본문을 전달하여 요약문을 생성합니다.
     - **저장**: 생성된 요약문과 모델 정보를 `summary`, `summary_model` 컬럼에 업데이트합니다.
+77: 8. **검색 API 업로드 (비동기)**:
+78:     - `naver_news_uploader_dag`가 주기적으로 실행됩니다.
+79:     - 요약이 존재하고 `doc_id`가 없는 레코드를 선별하여 외부 **Project RAG** API에 `POST /documents` 요청을 보냅니다.
+80:     - 업로드 성공 시 반환된 `docId`를 데이터베이스의 `doc_id` 컬럼에 업데이트하여 처리를 완료합니다.
 8. **데이터 신뢰성 보장**:
     - **날짜 파싱 강화**: 다양한 한국어 날짜 형식을 지원하며, 파싱 실패 시 수집 대상 날짜(`target_date`)를 폴백으로 사용합니다.
     - **대시보드 안정성**: 백엔드 필터링과 프론트엔드 안전 장치를 통해 잘못된 날짜 데이터가 차트 시각화를 방해하지 않도록 보호합니다.
