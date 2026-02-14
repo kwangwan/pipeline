@@ -1,20 +1,598 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
+model naver_news_articles {
+  id                String    @id @db.VarChar(64)
+  naver_url         String
+  original_url      String?
+  title             String?
+  publisher         String?
+  article_date      DateTime? @db.Timestamp(6)
+  section_id1       String?   @db.VarChar(10)
+  section_id2       String?   @db.VarChar(10)
+  created_at        DateTime? @default(now()) @db.Timestamp(6)
+  content           String?
+  title_extracted   String?
+  reporter_name     String?
+  collection_status String?   @default("PENDING") @db.VarChar(20)
+  locked_at         DateTime? @db.Timestamp(6)
+  fail_reason       String?
 }
 
-model naver_news_articles {
-  id           String    @id @db.VarChar(64)
-  naver_url    String
-  original_url String?
-  title        String?
-  publisher    String?   @db.VarChar(255)
-  article_date DateTime? @db.Timestamp(6)
-  section_id1  String?   @db.VarChar(10)
-  section_id2  String?   @db.VarChar(10)
-  created_at   DateTime? @default(now()) @db.Timestamp(6)
+model ab_permission {
+  id                 Int                  @id @default(autoincrement())
+  name               String               @unique(map: "ab_permission_name_uq") @db.VarChar(100)
+  ab_permission_view ab_permission_view[]
+}
+
+model ab_permission_view {
+  id                      Int                       @id @default(autoincrement())
+  permission_id           Int?
+  view_menu_id            Int?
+  ab_permission           ab_permission?            @relation(fields: [permission_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ab_view_menu            ab_view_menu?             @relation(fields: [view_menu_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ab_permission_view_role ab_permission_view_role[]
+
+  @@unique([permission_id, view_menu_id], map: "ab_permission_view_permission_id_view_menu_id_uq")
+}
+
+model ab_permission_view_role {
+  id                 Int                 @id @default(autoincrement())
+  permission_view_id Int?
+  role_id            Int?
+  ab_permission_view ab_permission_view? @relation(fields: [permission_view_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ab_role            ab_role?            @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([permission_view_id, role_id], map: "ab_permission_view_role_permission_view_id_role_id_uq")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model ab_register_user {
+  id                Int       @id @default(autoincrement())
+  first_name        String    @db.VarChar(256)
+  last_name         String    @db.VarChar(256)
+  username          String    @unique(map: "ab_register_user_username_uq") @db.VarChar(512)
+  password          String?   @db.VarChar(256)
+  email             String    @db.VarChar(512)
+  registration_date DateTime? @db.Timestamp(6)
+  registration_hash String?   @db.VarChar(256)
+}
+
+model ab_role {
+  id                      Int                       @id @default(autoincrement())
+  name                    String                    @unique(map: "ab_role_name_uq") @db.VarChar(64)
+  ab_permission_view_role ab_permission_view_role[]
+  ab_user_role            ab_user_role[]
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model ab_user {
+  id                                           Int                  @id @default(autoincrement())
+  first_name                                   String               @db.VarChar(256)
+  last_name                                    String               @db.VarChar(256)
+  username                                     String               @unique(map: "ab_user_username_uq") @db.VarChar(512)
+  password                                     String?              @db.VarChar(256)
+  active                                       Boolean?
+  email                                        String               @unique(map: "ab_user_email_uq") @db.VarChar(512)
+  last_login                                   DateTime?            @db.Timestamp(6)
+  login_count                                  Int?
+  fail_login_count                             Int?
+  created_on                                   DateTime?            @db.Timestamp(6)
+  changed_on                                   DateTime?            @db.Timestamp(6)
+  created_by_fk                                Int?
+  changed_by_fk                                Int?
+  ab_user_ab_user_changed_by_fkToab_user       ab_user?             @relation("ab_user_changed_by_fkToab_user", fields: [changed_by_fk], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_ab_user_ab_user_changed_by_fkToab_user ab_user[]            @relation("ab_user_changed_by_fkToab_user")
+  ab_user_ab_user_created_by_fkToab_user       ab_user?             @relation("ab_user_created_by_fkToab_user", fields: [created_by_fk], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_ab_user_ab_user_created_by_fkToab_user ab_user[]            @relation("ab_user_created_by_fkToab_user")
+  ab_user_role                                 ab_user_role[]
+  dag_run_note                                 dag_run_note[]
+  task_instance_note                           task_instance_note[]
+}
+
+model ab_user_role {
+  id      Int      @id @default(autoincrement())
+  user_id Int?
+  role_id Int?
+  ab_role ab_role? @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ab_user ab_user? @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([user_id, role_id], map: "ab_user_role_user_id_role_id_uq")
+}
+
+model ab_view_menu {
+  id                 Int                  @id @default(autoincrement())
+  name               String               @unique(map: "ab_view_menu_name_uq") @db.VarChar(250)
+  ab_permission_view ab_permission_view[]
+}
+
+model alembic_version {
+  version_num String @id(map: "alembic_version_pkc") @db.VarChar(32)
+}
+
+model callback_request {
+  id               Int      @id @default(autoincrement())
+  created_at       DateTime @db.Timestamptz(6)
+  priority_weight  Int
+  callback_data    Json     @db.Json
+  callback_type    String   @db.VarChar(20)
+  processor_subdir String?  @db.VarChar(2000)
+}
+
+model celery_taskmeta {
+  id        Int       @id
+  task_id   String?   @unique @db.VarChar(155)
+  status    String?   @db.VarChar(50)
+  result    Bytes?
+  date_done DateTime? @db.Timestamp(6)
+  traceback String?
+  name      String?   @db.VarChar(155)
+  args      Bytes?
+  kwargs    Bytes?
+  worker    String?   @db.VarChar(155)
+  retries   Int?
+  queue     String?   @db.VarChar(155)
+}
+
+model celery_tasksetmeta {
+  id         Int       @id
+  taskset_id String?   @unique @db.VarChar(155)
+  result     Bytes?
+  date_done  DateTime? @db.Timestamp(6)
+}
+
+model connection {
+  id                 Int      @id @default(autoincrement())
+  conn_id            String   @unique(map: "connection_conn_id_uq") @db.VarChar(250)
+  conn_type          String   @db.VarChar(500)
+  description        String?
+  host               String?  @db.VarChar(500)
+  schema             String?  @db.VarChar(500)
+  login              String?  @db.VarChar(500)
+  password           String?  @db.VarChar(5000)
+  port               Int?
+  is_encrypted       Boolean?
+  is_extra_encrypted Boolean?
+  extra              String?
+}
+
+model dag {
+  dag_id                          String                           @id @db.VarChar(250)
+  root_dag_id                     String?                          @db.VarChar(250)
+  is_paused                       Boolean?
+  is_subdag                       Boolean?
+  is_active                       Boolean?
+  last_parsed_time                DateTime?                        @db.Timestamptz(6)
+  last_pickled                    DateTime?                        @db.Timestamptz(6)
+  last_expired                    DateTime?                        @db.Timestamptz(6)
+  scheduler_lock                  Boolean?
+  pickle_id                       Int?
+  fileloc                         String?                          @db.VarChar(2000)
+  processor_subdir                String?                          @db.VarChar(2000)
+  owners                          String?                          @db.VarChar(2000)
+  description                     String?
+  default_view                    String?                          @db.VarChar(25)
+  schedule_interval               String?
+  timetable_description           String?                          @db.VarChar(1000)
+  max_active_tasks                Int
+  max_active_runs                 Int?
+  has_task_concurrency_limits     Boolean
+  has_import_errors               Boolean?                         @default(false)
+  next_dagrun                     DateTime?                        @db.Timestamptz(6)
+  next_dagrun_data_interval_start DateTime?                        @db.Timestamptz(6)
+  next_dagrun_data_interval_end   DateTime?                        @db.Timestamptz(6)
+  next_dagrun_create_after        DateTime?                        @db.Timestamptz(6)
+  dag_owner_attributes            dag_owner_attributes[]
+  dag_schedule_dataset_reference  dag_schedule_dataset_reference[]
+  dag_tag                         dag_tag[]
+  dag_warning                     dag_warning[]
+  dataset_dag_run_queue           dataset_dag_run_queue[]
+  task_outlet_dataset_reference   task_outlet_dataset_reference[]
+
+  @@index([next_dagrun_create_after], map: "idx_next_dagrun_create_after")
+  @@index([root_dag_id], map: "idx_root_dag_id")
+}
+
+model dag_code {
+  fileloc_hash BigInt   @id
+  fileloc      String   @db.VarChar(2000)
+  last_updated DateTime @db.Timestamptz(6)
+  source_code  String
+}
+
+model dag_owner_attributes {
+  dag_id String @db.VarChar(250)
+  owner  String @db.VarChar(500)
+  link   String @db.VarChar(500)
+  dag    dag    @relation(fields: [dag_id], references: [dag_id], onDelete: Cascade, onUpdate: NoAction, map: "dag.dag_id")
+
+  @@id([dag_id, owner])
+}
+
+model dag_pickle {
+  id           Int       @id @default(autoincrement())
+  pickle       Bytes?
+  created_dttm DateTime? @db.Timestamptz(6)
+  pickle_hash  BigInt?
+}
+
+model dag_run {
+  id                       Int                    @id @default(autoincrement())
+  dag_id                   String                 @db.VarChar(250)
+  queued_at                DateTime?              @db.Timestamptz(6)
+  execution_date           DateTime               @db.Timestamptz(6)
+  start_date               DateTime?              @db.Timestamptz(6)
+  end_date                 DateTime?              @db.Timestamptz(6)
+  state                    String?                @db.VarChar(50)
+  run_id                   String                 @db.VarChar(250)
+  creating_job_id          Int?
+  external_trigger         Boolean?
+  run_type                 String                 @db.VarChar(50)
+  conf                     Bytes?
+  data_interval_start      DateTime?              @db.Timestamptz(6)
+  data_interval_end        DateTime?              @db.Timestamptz(6)
+  last_scheduling_decision DateTime?              @db.Timestamptz(6)
+  dag_hash                 String?                @db.VarChar(32)
+  log_template_id          Int?
+  updated_at               DateTime?              @db.Timestamptz(6)
+  log_template             log_template?          @relation(fields: [log_template_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "task_instance_log_template_id_fkey")
+  dag_run_note             dag_run_note?
+  dagrun_dataset_event     dagrun_dataset_event[]
+  task_instance            task_instance[]
+  task_reschedule          task_reschedule[]
+
+  @@unique([dag_id, execution_date])
+  @@unique([dag_id, run_id])
+  @@index([dag_id, state], map: "dag_id_state")
+  @@index([dag_id], map: "idx_dag_run_dag_id")
+  @@index([last_scheduling_decision], map: "idx_last_scheduling_decision")
+}
+
+model dag_run_note {
+  user_id    Int?
+  dag_run_id Int      @id
+  content    String?  @db.VarChar(1000)
+  created_at DateTime @db.Timestamptz(6)
+  updated_at DateTime @db.Timestamptz(6)
+  dag_run    dag_run  @relation(fields: [dag_run_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dag_run_note_dr_fkey")
+  ab_user    ab_user? @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dag_run_note_user_fkey")
+}
+
+model dag_schedule_dataset_reference {
+  dataset_id Int
+  dag_id     String   @db.VarChar(250)
+  created_at DateTime @db.Timestamptz(6)
+  updated_at DateTime @db.Timestamptz(6)
+  dag        dag      @relation(fields: [dag_id], references: [dag_id], onDelete: Cascade, onUpdate: NoAction, map: "dsdr_dag_id_fkey")
+  dataset    dataset  @relation(fields: [dataset_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dsdr_dataset_fkey")
+
+  @@id([dataset_id, dag_id], map: "dsdr_pkey")
+}
+
+model dag_tag {
+  name   String @db.VarChar(100)
+  dag_id String @db.VarChar(250)
+  dag    dag    @relation(fields: [dag_id], references: [dag_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([name, dag_id])
+}
+
+model dag_warning {
+  dag_id       String   @db.VarChar(250)
+  warning_type String   @db.VarChar(50)
+  message      String
+  timestamp    DateTime @db.Timestamptz(6)
+  dag          dag      @relation(fields: [dag_id], references: [dag_id], onDelete: Cascade, onUpdate: NoAction, map: "dcw_dag_id_fkey")
+
+  @@id([dag_id, warning_type])
+}
+
+model dagrun_dataset_event {
+  dag_run_id    Int
+  event_id      Int
+  dag_run       dag_run       @relation(fields: [dag_run_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  dataset_event dataset_event @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([dag_run_id, event_id])
+  @@index([dag_run_id], map: "idx_dagrun_dataset_events_dag_run_id")
+  @@index([event_id], map: "idx_dagrun_dataset_events_event_id")
+}
+
+model dataset {
+  id                             Int                              @id @default(autoincrement())
+  uri                            String                           @unique(map: "idx_uri_unique") @db.VarChar(3000)
+  extra                          Json                             @db.Json
+  created_at                     DateTime                         @db.Timestamptz(6)
+  updated_at                     DateTime                         @db.Timestamptz(6)
+  is_orphaned                    Boolean                          @default(false)
+  dag_schedule_dataset_reference dag_schedule_dataset_reference[]
+  dataset_dag_run_queue          dataset_dag_run_queue[]
+  task_outlet_dataset_reference  task_outlet_dataset_reference[]
+}
+
+model dataset_dag_run_queue {
+  dataset_id    Int
+  target_dag_id String   @db.VarChar(250)
+  created_at    DateTime @db.Timestamptz(6)
+  dag           dag      @relation(fields: [target_dag_id], references: [dag_id], onDelete: Cascade, onUpdate: NoAction, map: "ddrq_dag_fkey")
+  dataset       dataset  @relation(fields: [dataset_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "ddrq_dataset_fkey")
+
+  @@id([dataset_id, target_dag_id], map: "datasetdagrunqueue_pkey")
+}
+
+model dataset_event {
+  id                   Int                    @id @default(autoincrement())
+  dataset_id           Int
+  extra                Json                   @db.Json
+  source_task_id       String?                @db.VarChar(250)
+  source_dag_id        String?                @db.VarChar(250)
+  source_run_id        String?                @db.VarChar(250)
+  source_map_index     Int?                   @default(-1)
+  timestamp            DateTime               @db.Timestamptz(6)
+  dagrun_dataset_event dagrun_dataset_event[]
+
+  @@index([dataset_id, timestamp], map: "idx_dataset_id_timestamp")
+}
+
+model import_error {
+  id         Int       @id @default(autoincrement())
+  timestamp  DateTime? @db.Timestamptz(6)
+  filename   String?   @db.VarChar(1024)
+  stacktrace String?
+}
+
+model job {
+  id               Int       @id @default(autoincrement())
+  dag_id           String?   @db.VarChar(250)
+  state            String?   @db.VarChar(20)
+  job_type         String?   @db.VarChar(30)
+  start_date       DateTime? @db.Timestamptz(6)
+  end_date         DateTime? @db.Timestamptz(6)
+  latest_heartbeat DateTime? @db.Timestamptz(6)
+  executor_class   String?   @db.VarChar(500)
+  hostname         String?   @db.VarChar(500)
+  unixname         String?   @db.VarChar(1000)
+
+  @@index([dag_id], map: "idx_job_dag_id")
+  @@index([state, latest_heartbeat], map: "idx_job_state_heartbeat")
+  @@index([job_type, latest_heartbeat], map: "job_type_heart")
+}
+
+model log {
+  id             Int       @id @default(autoincrement())
+  dttm           DateTime? @db.Timestamptz(6)
+  dag_id         String?   @db.VarChar(250)
+  task_id        String?   @db.VarChar(250)
+  map_index      Int?
+  event          String?   @db.VarChar(30)
+  execution_date DateTime? @db.Timestamptz(6)
+  owner          String?   @db.VarChar(500)
+  extra          String?
+
+  @@index([dag_id], map: "idx_log_dag")
+  @@index([dttm], map: "idx_log_dttm")
+  @@index([event], map: "idx_log_event")
+}
+
+model log_template {
+  id               Int       @id @default(autoincrement())
+  filename         String
+  elasticsearch_id String
+  created_at       DateTime  @db.Timestamptz(6)
+  dag_run          dag_run[]
+}
+
+model rendered_task_instance_fields {
+  dag_id          String        @db.VarChar(250)
+  task_id         String        @db.VarChar(250)
+  run_id          String        @db.VarChar(250)
+  map_index       Int           @default(-1)
+  rendered_fields Json          @db.Json
+  k8s_pod_yaml    Json?         @db.Json
+  task_instance   task_instance @relation(fields: [dag_id, task_id, run_id, map_index], references: [dag_id, task_id, run_id, map_index], onDelete: Cascade, onUpdate: NoAction, map: "rtif_ti_fkey")
+
+  @@id([dag_id, task_id, run_id, map_index])
+}
+
+model serialized_dag {
+  dag_id           String   @id @db.VarChar(250)
+  fileloc          String   @db.VarChar(2000)
+  fileloc_hash     BigInt
+  data             Json?    @db.Json
+  data_compressed  Bytes?
+  last_updated     DateTime @db.Timestamptz(6)
+  dag_hash         String   @db.VarChar(32)
+  processor_subdir String?  @db.VarChar(2000)
+
+  @@index([fileloc_hash], map: "idx_fileloc_hash")
+}
+
+model session {
+  id         Int       @id @default(autoincrement())
+  session_id String?   @unique @db.VarChar(255)
+  data       Bytes?
+  expiry     DateTime? @db.Timestamp(6)
+}
+
+model sla_miss {
+  task_id           String    @db.VarChar(250)
+  dag_id            String    @db.VarChar(250)
+  execution_date    DateTime  @db.Timestamptz(6)
+  email_sent        Boolean?
+  timestamp         DateTime? @db.Timestamptz(6)
+  description       String?
+  notification_sent Boolean?
+
+  @@id([task_id, dag_id, execution_date])
+  @@index([dag_id], map: "sm_dag")
+}
+
+model slot_pool {
+  id               Int     @id @default(autoincrement())
+  pool             String? @unique(map: "slot_pool_pool_uq") @db.VarChar(256)
+  slots            Int?
+  description      String?
+  include_deferred Boolean
+}
+
+model task_fail {
+  id            Int           @id @default(autoincrement())
+  task_id       String        @db.VarChar(250)
+  dag_id        String        @db.VarChar(250)
+  run_id        String        @db.VarChar(250)
+  map_index     Int           @default(-1)
+  start_date    DateTime?     @db.Timestamptz(6)
+  end_date      DateTime?     @db.Timestamptz(6)
+  duration      Int?
+  task_instance task_instance @relation(fields: [dag_id, task_id, run_id, map_index], references: [dag_id, task_id, run_id, map_index], onDelete: Cascade, onUpdate: NoAction, map: "task_fail_ti_fkey")
+
+  @@index([dag_id, task_id, run_id, map_index], map: "idx_task_fail_task_instance")
+}
+
+model task_instance {
+  task_id                       String                         @db.VarChar(250)
+  dag_id                        String                         @db.VarChar(250)
+  run_id                        String                         @db.VarChar(250)
+  map_index                     Int                            @default(-1)
+  start_date                    DateTime?                      @db.Timestamptz(6)
+  end_date                      DateTime?                      @db.Timestamptz(6)
+  duration                      Float?
+  state                         String?                        @db.VarChar(20)
+  try_number                    Int?
+  max_tries                     Int?                           @default(-1)
+  hostname                      String?                        @db.VarChar(1000)
+  unixname                      String?                        @db.VarChar(1000)
+  job_id                        Int?
+  pool                          String                         @db.VarChar(256)
+  pool_slots                    Int
+  queue                         String?                        @db.VarChar(256)
+  priority_weight               Int?
+  operator                      String?                        @db.VarChar(1000)
+  custom_operator_name          String?                        @db.VarChar(1000)
+  queued_dttm                   DateTime?                      @db.Timestamptz(6)
+  queued_by_job_id              Int?
+  pid                           Int?
+  executor_config               Bytes?
+  updated_at                    DateTime?                      @db.Timestamptz(6)
+  external_executor_id          String?                        @db.VarChar(250)
+  trigger_id                    Int?
+  trigger_timeout               DateTime?                      @db.Timestamp(6)
+  next_method                   String?                        @db.VarChar(1000)
+  next_kwargs                   Json?                          @db.Json
+  rendered_task_instance_fields rendered_task_instance_fields?
+  task_fail                     task_fail[]
+  dag_run                       dag_run                        @relation(fields: [dag_id, run_id], references: [dag_id, run_id], onDelete: Cascade, onUpdate: NoAction, map: "task_instance_dag_run_fkey")
+  trigger                       trigger?                       @relation(fields: [trigger_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  task_instance_note            task_instance_note?
+  task_map                      task_map?
+  task_reschedule               task_reschedule[]
+  xcom                          xcom[]
+
+  @@id([dag_id, task_id, run_id, map_index])
+  @@index([dag_id, run_id], map: "ti_dag_run")
+  @@index([dag_id, state], map: "ti_dag_state")
+  @@index([job_id], map: "ti_job_id")
+  @@index([pool, state, priority_weight], map: "ti_pool")
+  @@index([state], map: "ti_state")
+  @@index([dag_id, task_id, state, start_date], map: "ti_state_incl_start_date")
+  @@index([dag_id, task_id, run_id, state], map: "ti_state_lkp")
+  @@index([trigger_id], map: "ti_trigger_id")
+}
+
+model task_instance_note {
+  user_id       Int?
+  task_id       String        @db.VarChar(250)
+  dag_id        String        @db.VarChar(250)
+  run_id        String        @db.VarChar(250)
+  map_index     Int
+  content       String?       @db.VarChar(1000)
+  created_at    DateTime      @db.Timestamptz(6)
+  updated_at    DateTime      @db.Timestamptz(6)
+  task_instance task_instance @relation(fields: [dag_id, task_id, run_id, map_index], references: [dag_id, task_id, run_id, map_index], onDelete: Cascade, onUpdate: NoAction, map: "task_instance_note_ti_fkey")
+  ab_user       ab_user?      @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "task_instance_note_user_fkey")
+
+  @@id([task_id, dag_id, run_id, map_index])
+  @@unique([dag_id, task_id, run_id, map_index])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model task_map {
+  dag_id        String        @db.VarChar(250)
+  task_id       String        @db.VarChar(250)
+  run_id        String        @db.VarChar(250)
+  map_index     Int
+  length        Int
+  keys          Json?         @db.Json
+  task_instance task_instance @relation(fields: [dag_id, task_id, run_id, map_index], references: [dag_id, task_id, run_id, map_index], onDelete: Cascade, map: "task_map_task_instance_fkey")
+
+  @@id([dag_id, task_id, run_id, map_index])
+}
+
+model task_outlet_dataset_reference {
+  dataset_id Int
+  dag_id     String   @db.VarChar(250)
+  task_id    String   @db.VarChar(250)
+  created_at DateTime @db.Timestamptz(6)
+  updated_at DateTime @db.Timestamptz(6)
+  dag        dag      @relation(fields: [dag_id], references: [dag_id], onDelete: Cascade, onUpdate: NoAction, map: "todr_dag_id_fkey")
+  dataset    dataset  @relation(fields: [dataset_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "todr_dataset_fkey")
+
+  @@id([dataset_id, dag_id, task_id], map: "todr_pkey")
+}
+
+model task_reschedule {
+  id              Int           @id @default(autoincrement())
+  task_id         String        @db.VarChar(250)
+  dag_id          String        @db.VarChar(250)
+  run_id          String        @db.VarChar(250)
+  map_index       Int           @default(-1)
+  try_number      Int
+  start_date      DateTime      @db.Timestamptz(6)
+  end_date        DateTime      @db.Timestamptz(6)
+  duration        Int
+  reschedule_date DateTime      @db.Timestamptz(6)
+  dag_run         dag_run       @relation(fields: [dag_id, run_id], references: [dag_id, run_id], onDelete: Cascade, onUpdate: NoAction, map: "task_reschedule_dr_fkey")
+  task_instance   task_instance @relation(fields: [dag_id, task_id, run_id, map_index], references: [dag_id, task_id, run_id, map_index], onDelete: Cascade, onUpdate: NoAction, map: "task_reschedule_ti_fkey")
+
+  @@index([dag_id, run_id], map: "idx_task_reschedule_dag_run")
+  @@index([dag_id, task_id, run_id, map_index], map: "idx_task_reschedule_dag_task_run")
+}
+
+model trigger {
+  id            Int             @id @default(autoincrement())
+  classpath     String          @db.VarChar(1000)
+  kwargs        Json            @db.Json
+  created_date  DateTime        @db.Timestamptz(6)
+  triggerer_id  Int?
+  task_instance task_instance[]
+}
+
+model variable {
+  id           Int      @id @default(autoincrement())
+  key          String?  @unique(map: "variable_key_uq") @db.VarChar(250)
+  val          String?
+  description  String?
+  is_encrypted Boolean?
+}
+
+model xcom {
+  dag_run_id    Int
+  task_id       String        @db.VarChar(250)
+  map_index     Int           @default(-1)
+  key           String        @db.VarChar(512)
+  dag_id        String        @db.VarChar(250)
+  run_id        String        @db.VarChar(250)
+  value         Bytes?
+  timestamp     DateTime      @db.Timestamptz(6)
+  task_instance task_instance @relation(fields: [dag_id, task_id, run_id, map_index], references: [dag_id, task_id, run_id, map_index], onDelete: Cascade, onUpdate: NoAction, map: "xcom_task_instance_fkey")
+
+  @@id([dag_run_id, task_id, map_index, key])
+  @@index([key], map: "idx_xcom_key")
+  @@index([dag_id, task_id, run_id, map_index], map: "idx_xcom_task_instance")
 }

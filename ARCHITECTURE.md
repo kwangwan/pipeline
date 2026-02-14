@@ -4,7 +4,7 @@
 
 ## 개요 (Overview)
 
-이 시스템은 컨테이너화된 환경에서 Apache Airflow를 사용하여 데이터 수집 및 처리 워크플로우를 관리합니다. 최근에 추가된 **네이버 뉴스 크롤러**는 이 인프라를 활용하여 대규모 뉴스 데이터를 수집하고 PostgreSQL에 저장합니다.
+이 시스템은 컨테이너화된 환경에서 Apache Airflow를 사용하여 데이터 수집 및 처리 워크플로우를 관리합니다. 최근에 고도화된 **네이버 뉴스 크롤러**는 이 인프라를 활용하여 대규모 뉴스 데이터를 수집하고 PostgreSQL에 저장합니다. 크롤러는 **정기 수집(Scheduled)**과 **과거 데이터 수집(Backfill)** 두 가지 모드로 운영됩니다.
 
 ```mermaid
 graph TD
@@ -24,6 +24,11 @@ graph TD
 - **Webserver**: DAG 모니터링 및 관리를 위한 GUI를 제공합니다.
 - **Scheduler**: DAG를 모니터링하고 실행 조건이 충족된 태스크를 트리거합니다.
 - **Worker**: 태스크를 실제로 실행합니다. **CeleryExecutor**를 사용하여 워커를 수평적으로 확장할 수 있습니다.
+- **DAGs**:
+    - `naver_news_crawler_scheduled`: 매시간 실행되어 오늘/어제 뉴스를 수집합니다.
+    - `naver_news_crawler_backfill`: 사용자가 요청한 기간의 뉴스를 역순으로 수집합니다.
+    - `naver_news_content_collector_dag`: 10분마다 실행되어 본문이 없는 기사의 내용을 채웁니다. `Redis`나 `Celery` 부하를 줄이고 DB 레벨 락을 사용하여 안정적으로 확장 가능합니다.
+- **Plugins**: `naver_news_crawler_utils.py`에 공통 크롤링 로직이 캡슐화되어 있어 유지보수성을 높였습니다.
 - **Prisma Studio**: Docker 컨테이너로 실행되는 모던한 데이터베이스 GUI입니다. 별도의 인증 없이 로컬 환경에서 수집된 뉴스 데이터를 직관적으로 탐색하고 관리할 수 있습니다. (Port 5555)
 
 ### 2. 메시징 및 transient 저장소 (Redis)
@@ -37,9 +42,16 @@ graph TD
 
 ## 데이터 흐름 (Data Flow)
 
-1. **트리거**: 사용자가 Airflow UI에서 수동으로 또는 스케줄에 의해 DAG가 실행됩니다.
-2. **뉴스 목록 수집**: 워커는 네이버 뉴스의 AJAX API를 호출하여 지정된 날짜/섹션의 기사 목록을 가져옵니다.
+1. **트리거**:
+    - **Scheduled**: 스케줄러가 매시간 자동으로 트리거합니다.
+    - **Backfill**: 사용자가 Airflow UI에서 JSON 설정(`start_date`, `end_date`)과 함께 수동으로 트리거합니다.
+2. **뉴스 목록 수집**: 워커는 `plugins`의 공통 로직을 사용하여 네이버 뉴스의 AJAX API를 호출합니다. 지정된 날짜/섹션의 기사 목록을 가져옵니다.
     - 이때 차단 방지를 위해 맥북 크롬 헤더와 랜덤 지연 시간을 적용합니다.
 3. **상세 정보 추출**: 목록의 각 기사 URL을 방문하여 원본 기사 링크, 발행 시간, 언론사 이름을 추출합니다.
 4. **저장**: 중복 확인(SHA256 해시 PK) 후 Postgres DB에 기사 정보를 저장합니다.
-5. **상태 동기화**: 모든 태스크 실행 결과는 Postgres의 Airflow 메타데이터 영역에 기록됩니다.
+5. **본문 수집 (비동기)**:
+    - 별도의 `content_collector` DAG가 주기적으로 실행됩니다.
+    - **Locking**: `FOR UPDATE SKIP LOCKED` 쿼리로 처리되지 않은 기사들을 안전하게 가져옵니다.
+    - **Trafilatura**: 기사 URL에 접속하여 본문과 부가 정보를 추출합니다.
+    - **Update**: 추출된 본문, 기자명 등을 원본 레코드에 업데이트하고 상태를 `COMPLETED`로 변경합니다.
+6. **상태 동기화**: 모든 태스크 실행 결과는 Postgres의 Airflow 메타데이터 영역에 기록됩니다.
