@@ -165,6 +165,11 @@ services:
       - "11434:11434"
     volumes:
       - ./ollama_data:/root/.ollama
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: 4G
     restart: always
 
 # volumes:
