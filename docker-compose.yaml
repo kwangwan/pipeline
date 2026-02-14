@@ -53,6 +53,20 @@ services:
       start_period: 30s
     restart: always
 
+  prisma-studio:
+    image: node:18
+    ports:
+      - "5555:5555"
+    environment:
+      - DATABASE_URL=postgresql://airflow:airflow@postgres:5432/airflow
+    volumes:
+      - ./prisma:/app/prisma
+    working_dir: /app
+    command: sh -c "npm install -g prisma && prisma studio --schema=/app/prisma/schema.prisma --hostname 0.0.0.0 --port 5555"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   airflow-webserver:
     <<: *airflow-common
     command: webserver

@@ -42,6 +42,14 @@
 - **차단 방지**: 맥북 크롬 User-Agent를 사용하며, 요청 사이에 랜덤 지연 시간을 두어 서버 부하를 최소화합니다.
 - **중복 방지**: 네이버 URL의 SHA256 해시를 PK로 사용하여 중복 데이터를 저장하지 않습니다.
 
+### 데이터 확인 (Data Verification)
+
+수집된 데이터는 **Prisma Studio**를 통해 손쉽게 확인할 수 있습니다.
+
+1. 웹 브라우저에서 [http://localhost:5555](http://localhost:5555) 접속
+2. `naver_news_articles` 모델을 클릭하여 수집된 기사 목록 확인
+3. 별도의 로그인 없이 바로 데이터를 조회, 필터링 및 수정 가능
+
 ### 사용 방법 (Usage)
 
 1. **DAG 활성화**: Airflow UI에서 `naver_news_crawler` DAG를 찾아 활성화(Unpause)합니다.

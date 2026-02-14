@@ -24,6 +24,7 @@ graph TD
 - **Webserver**: DAG 모니터링 및 관리를 위한 GUI를 제공합니다.
 - **Scheduler**: DAG를 모니터링하고 실행 조건이 충족된 태스크를 트리거합니다.
 - **Worker**: 태스크를 실제로 실행합니다. **CeleryExecutor**를 사용하여 워커를 수평적으로 확장할 수 있습니다.
+- **Prisma Studio**: Docker 컨테이너로 실행되는 모던한 데이터베이스 GUI입니다. 별도의 인증 없이 로컬 환경에서 수집된 뉴스 데이터를 직관적으로 탐색하고 관리할 수 있습니다. (Port 5555)
 
 ### 2. 메시징 및 transient 저장소 (Redis)
 - **Broker**: Celery의 메시지 브로커로 고용되어 스케줄러가 보낸 태스크를 워커로 전달합니다.
