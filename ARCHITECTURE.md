@@ -16,6 +16,9 @@ graph TD
     Worker --> RedisStore[(Redis 데이터 저장소)]
     Worker --> NewsDB[(Postgres 기사 저장소)]
     Worker --> NaverNews[네이버 뉴스 API/웹]
+    
+    DashboardFE[Dashboard Frontend] --> DashboardBE[Dashboard Backend]
+    DashboardBE --> NewsDB
 ```
 
 ## 주요 구성 요소 (Components)
@@ -39,6 +42,10 @@ graph TD
 - Airflow의 실행 상태(DAG, Run, Task 등)를 저장합니다.
 - **네이버 뉴스 크롤러 데이터**: 수집된 기사 URL, 제목, 언론사 등의 정보가 동일한 Postgres 인스턴스의 `naver_news_articles` 테이블에 저장되어 영구적으로 보존됩니다.
 - **영속성**: 로컬 디렉토리 `./postgres_data`와 연결(Bind Mount)되어 컨테이너가 삭제되어도 데이터가 유지됩니다.
+
+### 4. 데이터 시각화 (Dashboard)
+- **Dashboard Backend**: FastAPI 기반의 REST API 서버입니다. Postgres에서 뉴스 수집 통계를 조회하여 제공합니다. (Port 8000)
+- **Dashboard Frontend**: React + Vite 기반의 웹 애플리케이션입니다. Chart.js를 사용하여 수집 트렌드, 언론사별/섹션별 통계를 시각화합니다. (Port 3000)
 
 ## 데이터 흐름 (Data Flow)
 

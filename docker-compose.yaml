@@ -130,6 +130,24 @@ services:
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
 
+  dashboard-backend:
+    build: ./dashboard-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://airflow:airflow@postgres/airflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: always
+
+  dashboard-frontend:
+    build: ./dashboard-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - dashboard-backend
+    restart: always
 
 # volumes:
 #   postgres-db-volume:

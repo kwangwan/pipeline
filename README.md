@@ -24,11 +24,13 @@
    ```
 3. 서비스 시작:
    ```bash
-   docker-compose up -d
+   docker-compose up -d --build
    ```
 4. Airflow 웹 UI 접속: [http://localhost:8080](http://localhost:8080)
    - **ID**: `airflow`
    - **PW**: `airflow`
+5. 뉴스 데이터 대시보드 접속: [http://localhost:3000](http://localhost:3000)
+   - 수집된 기사 통계 및 트렌드를 시각적으로 확인할 수 있습니다.
 
 ---
 
@@ -90,6 +92,8 @@
     - `naver_news_crawler_scheduled.py`: 정기 수집 DAG
     - `naver_news_crawler_backfill.py`: 과거 데이터 수집 DAG
     - `naver_news_content_collector_dag.py`: 본문 수집 DAG
+- `dashboard-backend/`: 대시보드 백엔드 API (FastAPI)
+- `dashboard-frontend/`: 대시보드 프론트엔드 (React + Vite)
 - `plugins/`: 커스텀 파이썬 모듈 및 유틸리티 (`naver_news_crawler_utils.py` - 공통 크롤링 로직)
 - `logs/`: 태스크 실행 로그.
 - `postgres_data/`: Postgres 데이터 영구 저장소 (Git 제외).
