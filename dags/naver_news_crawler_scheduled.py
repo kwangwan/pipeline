@@ -52,7 +52,7 @@ with DAG(
     'naver_news_crawler_scheduled',
     default_args=default_args,
     description='Crawl Naver News articles for Today and Yesterday',
-    schedule_interval='0 * * * *', # Hourly
+    schedule_interval='0 */3 * * *', # Every 3 hours
     catchup=False,
     tags=['news', 'naver', 'crawler', 'scheduled'],
 ) as dag:
