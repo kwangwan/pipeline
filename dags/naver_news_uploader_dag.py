@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 import json
 import requests
@@ -76,9 +76,10 @@ def upload_summarized_articles(**kwargs):
                     # article_date is naive but represents KST. Add timezone info for correct API interpretation.
                     formatted_date = None
                     if article_date:
-                        # Add KST timezone (+09:00)
-                        kst_date = article_date.replace(tzinfo=timedelta(hours=9))
-                        formatted_date = kst_date.isoformat()
+                        # Add KST timezone (+09:00) then convert to UTC
+                        kst_date = article_date.replace(tzinfo=timezone(timedelta(hours=9)))
+                        utc_date = kst_date.astimezone(timezone.utc)
+                        formatted_date = utc_date.isoformat()
 
                     payload = {
                         "categoryId": SEARCH_CATEGORY_ID,
