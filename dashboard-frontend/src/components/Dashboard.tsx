@@ -222,9 +222,27 @@ function Dashboard() {
               <h3 className="text-slate-400 text-sm font-medium uppercase">Success</h3>
               <p className="text-4xl font-bold text-green-400 mt-2">{summary.success ? summary.success.toLocaleString() : 0}</p>
           </div>
-          <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
+          <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg relative group">
               <h3 className="text-slate-400 text-sm font-medium uppercase">Failed</h3>
               <p className="text-4xl font-bold text-red-400 mt-2">{summary.failed ? summary.failed.toLocaleString() : 0}</p>
+              {summary.failed > 0 && (
+                  <button 
+                    className="absolute top-4 right-4 text-xs bg-red-600 hover:bg-red-500 text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={async () => {
+                        if (window.confirm('Reset all failed articles to PENDING?')) {
+                            try {
+                                await axios.post(`${API_Base}/articles/reset-failed`)
+                                fetchData()
+                            } catch (err) {
+                                console.error(err)
+                                alert('Failed to reset articles')
+                            }
+                        }
+                    }}
+                  >
+                      Reset
+                  </button>
+              )}
           </div>
       </div>
 

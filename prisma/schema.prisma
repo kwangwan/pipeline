@@ -18,8 +18,6 @@ model naver_news_articles {
   section_id2       String?   @db.VarChar(10)
   created_at        DateTime? @default(now()) @db.Timestamp(6)
   content           String?
-  title_extracted   String?
-  reporter_name     String?
   collection_status String?   @default("PENDING") @db.VarChar(20)
   locked_at         DateTime? @db.Timestamp(6)
   fail_reason       String?

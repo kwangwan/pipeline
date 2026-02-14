@@ -172,3 +172,13 @@ def get_filters(db: Session = Depends(get_db)):
         "publishers": [row[0] for row in pubs],
         "sections": [row[0] for row in secs]
     }
+@app.post("/articles/reset-failed")
+def reset_failed_articles(db: Session = Depends(get_db)):
+    try:
+        query = text("UPDATE naver_news_articles SET collection_status = 'PENDING', fail_reason = NULL WHERE collection_status = 'FAILED'")
+        db.execute(query)
+        db.commit()
+        return {"status": "success", "message": "Failed articles have been reset to PENDING"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))

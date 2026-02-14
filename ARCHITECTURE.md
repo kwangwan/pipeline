@@ -26,11 +26,12 @@ graph TD
 ### 1. 워크플로우 관리 (Apache Airflow)
 - **Webserver**: DAG 모니터링 및 관리를 위한 GUI를 제공합니다.
 - **Scheduler**: DAG를 모니터링하고 실행 조건이 충족된 태스크를 트리거합니다.
-- **Worker**: 태스크를 실제로 실행합니다. **CeleryExecutor**를 사용하여 워커를 수평적으로 확장할 수 있습니다.
+- **Worker**: 태스크를 실제로 실행합니다. **CeleryExecutor**를 사용하여 워커를 수평적으로 확장할 수 있습니다. 
+    - **커스텀 이미지**: 효율적인 본문 추출을 위해 `trafilatura` 및 관련 시스템 라이브러리(`libxml2`, `libxslt`, `zlib`)가 포함된 커스텀 `Dockerfile.airflow`를 사용합니다. 태스크 실행 시 별도의 패키지 설치 없이 즉시 동작합니다.
 - **DAGs**:
     - `naver_news_crawler_scheduled`: 매시간 실행되어 오늘/어제 뉴스를 수집합니다.
     - `naver_news_crawler_backfill`: 사용자가 요청한 기간의 뉴스를 역순으로 수집합니다.
-    - `naver_news_content_collector_dag`: 10분마다 실행되어 본문이 없는 기사의 내용을 채웁니다. `Redis`나 `Celery` 부하를 줄이고 DB 레벨 락을 사용하여 안정적으로 확장 가능합니다.
+    - `naver_news_content_collector_dag`: 본문이 없는 기사의 내용을 채우는 수집기입니다. 남은 기사가 없을 때까지 **연속적으로 실행**되며, 시스템 부하 조절을 위해 최대 **2개의 봇(Run)**만 동시에 동작하도록 제한되어 있습니다. `FOR UPDATE SKIP LOCKED`를 통해 안정적인 병렬 처리를 보장합니다.
 - **Plugins**: `naver_news_crawler_utils.py`에 공통 크롤링 로직이 캡슐화되어 있어 유지보수성을 높였습니다.
 - **Prisma Studio**: Docker 컨테이너로 실행되는 모던한 데이터베이스 GUI입니다. 별도의 인증 없이 로컬 환경에서 수집된 뉴스 데이터를 직관적으로 탐색하고 관리할 수 있습니다. (Port 5555)
 
@@ -44,8 +45,8 @@ graph TD
 - **영속성**: 로컬 디렉토리 `./postgres_data`와 연결(Bind Mount)되어 컨테이너가 삭제되어도 데이터가 유지됩니다.
 
 ### 4. 데이터 시각화 (Dashboard)
-- **Dashboard Backend**: FastAPI 기반의 REST API 서버입니다. Postgres에서 뉴스 수집 통계를 조회하여 제공합니다. (Port 8000)
-- **Dashboard Frontend**: React + Vite 기반의 웹 애플리케이션입니다. Chart.js를 사용하여 수집 트렌드, 언론사별/섹션별 통계를 시각화합니다. (Port 3000)
+- **Dashboard Backend**: FastAPI 기반의 REST API 서버입니다. Postgres에서 뉴스 수집 통계를 조회하고, **실패한 수집 건을 초기화(Reset to PENDING)**하는 기능을 제공합니다. (Port 8000)
+- **Dashboard Frontend**: React + Vite 기반의 웹 애플리케이션입니다. Chart.js를 사용하여 수집 트렌드, 언론사별/섹션별 통계를 시각화하며, 실패한 기사를 일괄 재시도할 수 있는 리셋 버튼을 제공합니다. (Port 3000)
 
 ## 데이터 흐름 (Data Flow)
 
@@ -60,5 +61,5 @@ graph TD
     - 별도의 `content_collector` DAG가 주기적으로 실행됩니다.
     - **Locking**: `FOR UPDATE SKIP LOCKED` 쿼리로 처리되지 않은 기사들을 안전하게 가져옵니다.
     - **Trafilatura**: 기사 URL에 접속하여 본문과 부가 정보를 추출합니다.
-    - **Update**: 추출된 본문, 기자명 등을 원본 레코드에 업데이트하고 상태를 `COMPLETED`로 변경합니다.
+    - **Update**: 추출된 본문을 원본 레코드에 업데이트하고 상태를 `COMPLETED`로 변경합니다. (불필요한 메타데이터 필드인 `title_extracted`, `reporter_name`은 데이터 정제 과정을 거쳐 삭제되었습니다.)
 6. **상태 동기화**: 모든 태스크 실행 결과는 Postgres의 Airflow 메타데이터 영역에 기록됩니다.
