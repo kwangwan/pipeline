@@ -191,7 +191,7 @@ def get_filters(db: Session = Depends(get_db)):
 @app.post("/articles/reset-failed")
 def reset_failed_articles(db: Session = Depends(get_db)):
     try:
-        query = text("UPDATE naver_news_articles SET collection_status = 'PENDING', fail_reason = NULL WHERE collection_status = 'FAILED'")
+        query = text("UPDATE naver_news_articles SET collection_status = 'PENDING', fail_reason = NULL WHERE collection_status = 'FAILED' OR fail_reason IS NOT NULL")
         db.execute(query)
         db.commit()
         return {"status": "success", "message": "Failed articles have been reset to PENDING"}
