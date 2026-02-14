@@ -180,6 +180,13 @@ def crawl_all_sections_for_date(target_date, postgres_conn_id='postgres_default'
                     title = article['title']
                     article_id = get_article_id(naver_url)
                     
+                    # Check if article already exists
+                    check_sql = "SELECT 1 FROM naver_news_articles WHERE id = %s"
+                    existing = pg_hook.get_first(check_sql, parameters=(article_id,))
+                    if existing:
+                        logger.info(f"Skipping existing article: {naver_url}")
+                        continue
+
                     # Fetch Detail
                     detail = fetch_article_detail(naver_url)
                     if not detail:
