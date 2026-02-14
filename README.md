@@ -36,14 +36,20 @@
    ```bash
    docker compose up -d --build
    ```
+   > [!TIP]
+   > 만약 `stat .: no such file or directory` 에러가 발생하면, 현재 터미널의 디렉토리 정보가 유실된 것입니다. `cd` 명령어로 다시 현재 디렉토리로 진입한 후 실행하세요.
+   > ```bash
+   > cd "/Volumes/RAID Volumn/pipeline"
+   > ```
 6. **Ollama 모델 다운로드 (필수)**:
    ```bash
    docker exec -it pipeline-ollama-1 ollama pull gemma3:4b
    ```
 7. Airflow 웹 UI 접속: [http://localhost:8080](http://localhost:8080)
+    - **Note**: 로컬 Ollama 서비스와 충돌을 피하기 위해 컨테이너 포트를 `11435`로 매핑했습니다.
    - **ID**: `airflow`
    - **PW**: `airflow`
-8. 뉴스 데이터 대시보드 접속: [http://localhost:3000](http://localhost:3000)
+8. 뉴스 데이터 대시보드 접속: [http://localhost:3001](http://localhost:3001)
     - **기본 데이터 범위**: 대시보드 로드 시 최근 **30일** 데이터가 기본값으로 설정되어 최신 트렌드를 즉시 확인할 수 있습니다.
     - **시간대 동기화 (Timezone Sync)**: 브라우저의 시간대를 자동으로 감지하여 모든 데이터(수집일, 발행일)를 사용자 로컬 시간 기준으로 표시하고 필터링합니다.
     - **시계열 전환**: 데이터 수집 시간(`Created At`) 또는 기사 발행 시간(`Article Date`) 기준으로 차트를 전환하여 볼 수 있습니다.
@@ -123,6 +129,31 @@
     - **메타데이터 포함**: 기사 ID, 제목, 원본 URL, 언론사 정보를 문서 메타데이터로 함께 전송하여 검색 결과의 활용도를 높입니다.
     - **상태 동기화**: 업로드 성공 시 API로부터 반환받은 문서 ID(`doc_id`)를 데이터베이스에 기록하여 중복 업로드를 방지합니다.
     - **안전한 데이터 전송**: `FOR UPDATE SKIP LOCKED`를 통해 여러 워커가 동시에 작업해도 데이터 충돌 없이 안전하게 전송합니다.
+
+---
+
+## 트러블슈팅 및 복구 (Troubleshooting & Recovery)
+
+### 데이터베이스 초기화 시 복구 (Database Reset Recovery)
+`postgres_data` 볼륨이 삭제되거나 초기화된 경우, 다음 단계를 통해 애플리케이션 스키마와 Airflow 연결 설정을 복구해야 합니다.
+
+1. **Prisma 스키마 동기화 (Sync Schema)**:
+   애플리케이션 전용 테이블(`naver_news_articles` 등)을 생성합니다.
+   ```bash
+   docker exec pipeline-prisma-studio-1 npx prisma db push --schema=/app/prisma/schema.prisma --accept-data-loss
+   ```
+
+2. **Airflow 연결 복구 (Restore Connections)**:
+   뉴스 크롤러가 사용하는 `postgres_default` 연결을 다시 등록합니다.
+   ```bash
+   docker exec pipeline-airflow-scheduler-1 airflow connections add 'postgres_default' \
+       --conn-type 'postgres' \
+       --conn-host 'postgres' \
+       --conn-login 'airflow' \
+       --conn-password 'airflow' \
+       --conn-schema 'airflow' \
+       --conn-port 5432
+   ```
 
 ---
 

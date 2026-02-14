@@ -90,3 +90,13 @@ graph TD
     - **날짜 파싱 강화**: 다양한 한국어 날짜 형식을 지원하며, 파싱 실패 시 수집 대상 날짜(`target_date`)를 폴백으로 사용합니다.
     - **대시보드 안정성**: 백엔드 필터링과 프론트엔드 안전 장치를 통해 잘못된 날짜 데이터가 차트 시각화를 방해하지 않도록 보호합니다.
 9. **상태 동기화**: 모든 태스크 실행 결과는 Postgres의 Airflow 메타데이터 영역에 기록됩니다.
+
+## 환경 고려 사항 (Environmental Considerations)
+
+### macOS & RAID 볼륨 주의사항
+- **Stale File Handles**: macOS에서 RAID 볼륨을 사용할 때, 볼륨의 마운트 상태가 변하면 터미널이 `stat .: no such file or directory` 에러를 뱉으며 현재 디렉토리를 잃어버릴 수 있습니다. 이 경우 `cd` 명령어로 명시적으로 다시 진입하여 셸 세션을 갱신해야 합니다.
+
+### 포트 할당 전략 (Port Allocation)
+- **Ollama (Conflict Avoidance)**: 로컬 머신에 이미 Ollama가 설치되어 동작 중인 경우 기본 포트(`11434`)가 충돌합니다. 이 프로젝트의 Docker 환경은 이를 피하기 위해 호스트 포트를 **`11435`**로 우회하여 할당합니다.
+    - 호스트 접근: `http://localhost:11435`
+    - 컨테이너 내부 통신: `http://ollama:11434`

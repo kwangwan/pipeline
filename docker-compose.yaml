@@ -154,7 +154,7 @@ services:
   dashboard-frontend:
     build: ./dashboard-frontend
     ports:
-      - "3000:3000"
+      - "3001:3000"
     depends_on:
       - dashboard-backend
     restart: always
@@ -162,14 +162,14 @@ services:
   ollama:
     image: ollama/ollama:latest
     ports:
-      - "11434:11434"
+      - "11435:11434"
     volumes:
       - ./ollama_data:/root/.ollama
     deploy:
       resources:
         limits:
-          cpus: '8'
-          memory: 4G
+          cpus: '6'
+          memory: 8G
     restart: always
 
 # volumes:
