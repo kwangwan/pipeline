@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
+from airflow.models.param import Param
 from naver_news_crawler_utils import (
     fetch_article_list, 
     parse_article_list_html, 
@@ -106,6 +107,7 @@ def crawl_naver_news_by_date(**kwargs):
                 
             logger.info(f"Finished section {sid1}/{sid2}. Added {total_added} articles.")
 
+
 with DAG(
     'naver_news_crawler',
     default_args=default_args,
@@ -113,6 +115,13 @@ with DAG(
     schedule_interval=None, # Manual trigger for specific dates
     catchup=False,
     tags=['news', 'naver', 'crawler'],
+    params={
+        "date": Param(
+            default=datetime.now().strftime('%Y%m%d'),
+            type="string",
+            description="수집할 날짜 (YYYYMMDD 형식)"
+        )
+    },
 ) as dag:
 
     crawl_task = PythonOperator(
