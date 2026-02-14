@@ -159,18 +159,7 @@ services:
       - dashboard-backend
     restart: always
 
-  ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11435:11434"
-    volumes:
-      - ./ollama_data:/root/.ollama
-    deploy:
-      resources:
-        limits:
-          cpus: '6'
-          memory: 8G
-    restart: always
+
 
 # volumes:
 #   postgres-db-volume:

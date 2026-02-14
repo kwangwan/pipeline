@@ -39,7 +39,7 @@ def summarize_articles(**kwargs):
                 WITH locked_rows AS (
                     SELECT id
                     FROM naver_news_articles
-                    WHERE collection_status = 'COMPLETED'
+                    WHERE (collection_status = 'COMPLETED' OR collection_status = 'SUMM_FAILED')
                       AND summary IS NULL
                       AND content IS NOT NULL
                     ORDER BY article_date DESC NULLS LAST
@@ -105,19 +105,42 @@ Summary:"""
                         update_sql = """
                             UPDATE naver_news_articles
                             SET summary = %s,
-                                summary_model = %s
+                                summary_model = %s,
+                                collection_status = 'COMPLETED'
                             WHERE id = %s
                         """
                         cursor.execute(update_sql, (summary_text, f"ollama/{SUMMARIZATION_MODEL}", article_id))
                         conn.commit()
                         logger.info(f"Summarized article {article_id}")
                     else:
-                        logger.error(f"Ollama API error for {article_id}: {response.text}")
-                        conn.rollback()
+                        error_msg = f"Ollama API error: {response.text}"
+                        logger.error(f"{error_msg} for {article_id}")
+                        
+                        # Update status to failed so we don't retry immediately/indefinitely
+                        fail_sql = """
+                            UPDATE naver_news_articles
+                            SET collection_status = 'SUMM_FAILED',
+                                fail_reason = %s
+                            WHERE id = %s
+                        """
+                        cursor.execute(fail_sql, (error_msg[:255], article_id)) # Truncate error message if needed
+                        conn.commit()
 
                 except Exception as e:
                     logger.error(f"Error summarizing {article_id}: {e}")
-                    conn.rollback()
+                    try:
+                        # Attempt to record the exception
+                        fail_sql = """
+                            UPDATE naver_news_articles
+                            SET collection_status = 'SUMM_FAILED',
+                                fail_reason = %s
+                            WHERE id = %s
+                        """
+                        cursor.execute(fail_sql, (str(e)[:255], article_id))
+                        conn.commit()
+                    except Exception as inner_e:
+                         logger.error(f"Failed to update fail status for {article_id}: {inner_e}")
+                         conn.rollback()
                     
         except Exception as e:
             logger.error(f"Batch processing error: {e}")

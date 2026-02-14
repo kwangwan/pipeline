@@ -15,6 +15,7 @@
 
 ### 사전 요구 사항
 - Docker 및 Docker Compose가 설치되어 있어야 합니다.
+- **Local Ollama**: 호스트 머신에 Ollama가 설치되어 실행 중이어야 합니다. ([Ollama 설치](https://ollama.com))
 
 ### 설정 및 실행
 1. 저장소를 클론합니다.
@@ -23,7 +24,7 @@
    echo "AIRFLOW_UID=$(id -u)" > .env
    ```
 4. **환경 변수 구성**: `.env.example` 파일을 `.env`로 복사하거나 내용을 추가하여 설정을 구성합니다.
-   - `OLLAMA_HOST`: Ollama 서버 주소 (기본값: `http://ollama:11434`)
+   - `OLLAMA_HOST`: Ollama 서버 주소 (기본값: `http://host.docker.internal:11434`)
    - `SUMMARIZATION_MODEL`: 사용할 LLM 모델 (기본값: `gemma3:4b`)
    - `SUMMARIZER_BATCH_SIZE`: 한 번에 요약할 기사 수 (기본값: `3`)
    - `CONTENT_COLLECTOR_BATCH_SIZE`: 한 번에 수집할 본문 수 (기본값: `100`)
@@ -31,7 +32,7 @@
    - `SEARCH_API_KEY`: Search API 인증 키
    - `SEARCH_CATEGORY_ID`: 문서를 업로드할 카테고리 ID
 
-5. 서비스 빌드 및 시작 (커스텀 Airflow 이미지 및 **Ollama** 포함):
+5. 서비스 빌드 및 시작 (커스텀 Airflow 이미지):
    - `.env` 파일에 필요한 설정(모델명, 배치 크기 등)을 확인하거나 수정합니다.
    ```bash
    docker compose up -d --build
@@ -41,14 +42,11 @@
    > ```bash
    > cd "/Volumes/RAID Volumn/pipeline"
    > ```
-6. **Ollama 모델 다운로드 (필수)**:
-   ```bash
-   docker exec -it pipeline-ollama-1 ollama pull gemma3:4b
-   ```
+6. **Ollama (Local Use)**: 이 프로젝트는 호스트 머신에서 실행 중인 Ollama를 사용합니다. 별도의 포트 매핑이나 컨테이너 실행이 필요하지 않습니다.
+    - 기본 주소: `http://host.docker.internal:11434`
 7. Airflow 웹 UI 접속: [http://localhost:8080](http://localhost:8080)
-    - **Note**: 로컬 Ollama 서비스와 충돌을 피하기 위해 컨테이너 포트를 `11435`로 매핑했습니다.
-   - **ID**: `airflow`
-   - **PW**: `airflow`
+    - **ID**: `airflow`
+    - **PW**: `airflow`
 8. 뉴스 데이터 대시보드 접속: [http://localhost:3001](http://localhost:3001)
     - **기본 데이터 범위**: 대시보드 로드 시 최근 **30일** 데이터가 기본값으로 설정되어 최신 트렌드를 즉시 확인할 수 있습니다.
     - **시간대 동기화 (Timezone Sync)**: 브라우저의 시간대를 자동으로 감지하여 모든 데이터(수집일, 발행일)를 사용자 로컬 시간 기준으로 표시하고 필터링합니다.

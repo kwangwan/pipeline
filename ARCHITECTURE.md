@@ -16,7 +16,7 @@ graph TD
     Worker --> RedisStore[(Redis 데이터 저장소)]
     Worker --> NewsDB[(Postgres 기사 저장소)]
     Worker --> NaverNews[네이버 뉴스 API/웹]
-    Worker --> Ollama[Ollama LLM Server]
+    Worker --> Ollama[Local Ollama (Host)]
     Worker --> SearchAPI[Project RAG Search API]
     
     DashboardFE[Dashboard Frontend] --> DashboardBE[Dashboard Backend]
@@ -49,7 +49,7 @@ graph TD
 - **영속성**: 로컬 디렉토리 `./postgres_data`와 연결(Bind Mount)되어 컨테이너가 삭제되어도 데이터가 유지됩니다.
 
 ### 4. 로컬 LLM 서버 (Ollama)
-- **Ollama**: GPU 또는 CPU 리소스를 활용하여 전용 API 키 없이 로컬에서 대규모 언어 모델을 실행합니다. 이 프로젝트에서는 `gemma3:4b` 모델을 사용하여 기사 요약을 수행합니다.
+- **Ollama**: 호스트 머신의 로컬 Ollama 서버를 사용하여 기사 요약을 수행합니다. Docker 컨테이너의 리소스 제약을 피하기 위해 호스트의 자원(GPU/CPU)을 직접 활용합니다. `gemma3:4b` 모델을 사용합니다.
 
 ### 5. 데이터 시각화 (Dashboard)
 - **Dashboard Backend**: FastAPI 기반의 REST API 서버입니다. Postgres에서 뉴스 수집 통계를 조회하고, **실패한 수집 건을 초기화(Reset to PENDING)**하는 기능을 제공합니다. (Port 8000)
@@ -74,7 +74,7 @@ graph TD
     - **최신순 우선순위**: `ORDER BY article_date DESC`를 통해 가장 최근 기사부터 요약을 생성합니다.
     - **대량 배치**: 효율적인 처리를 위해 배치 크기를 지정하여 묶어서 작업을 수행합니다. (`.env`의 `SUMMARIZER_BATCH_SIZE` 설정 사용)
     - **연속 수행**: 처리 대기 중인 모든 기사를 마칠 때까지 루프를 돌며 즉시 요약을 이어나갑니다.
-    - **Ollama API**: 워커는 로컬 Ollama 서버에 본문을 전달하여 요약문을 생성합니다.
+    - **Ollama API**: 워커는 호스트 머신의 Ollama 서버(`host.docker.internal`)에 본문을 전달하여 요약문을 생성합니다.
     - **저장**: 생성된 요약문과 모델 정보를 `summary`, `summary_model` 컬럼에 업데이트합니다.
 8. **검색 API 업로드 (비동기)**:
     - `naver_news_uploader_dag`가 주기적으로 실행됩니다.
