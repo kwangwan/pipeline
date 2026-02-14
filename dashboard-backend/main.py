@@ -83,7 +83,6 @@ def get_summary(
             count(*) FILTER (WHERE collection_status = 'COMPLETED') as success,
             count(*) FILTER (WHERE collection_status = 'FAILED' OR fail_reason IS NOT NULL) as failed,
             count(*) FILTER (WHERE collection_status = 'COMPLETED') as collected,
-            count(*) FILTER (WHERE summary IS NOT NULL) as summarized,
             count(*) FILTER (WHERE doc_id IS NOT NULL) as uploaded
         FROM naver_news_articles
         {where_clause}
@@ -95,8 +94,7 @@ def get_summary(
         "success": result[1],
         "failed": result[2],
         "collected": result[3],
-        "summarized": result[4],
-        "uploaded": result[5]
+        "uploaded": result[4]
     }
 
 @app.get("/stats/trend")

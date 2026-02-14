@@ -45,7 +45,6 @@ interface SummaryStats {
   success: number
   failed: number
   collected: number
-  summarized: number
   uploaded: number
 }
 
@@ -77,7 +76,6 @@ function Dashboard() {
     success: 0,
     failed: 0,
     collected: 0,
-    summarized: 0,
     uploaded: 0
   })
   const [filters, setFilters] = useState<FilterOptions>({ publishers: [], sections: [] })
@@ -275,7 +273,7 @@ function Dashboard() {
       {/* Progress Bars */}
       <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg space-y-6">
         <h2 className="text-xl font-semibold text-slate-200 mb-2">Processing Progress</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <ProgressBar
             label="Article Collection"
             current={summary.collected}
@@ -283,15 +281,9 @@ function Dashboard() {
             color="bg-sky-500"
           />
           <ProgressBar
-            label="Summarization"
-            current={summary.summarized}
-            total={summary.collected}
-            color="bg-emerald-500"
-          />
-          <ProgressBar
             label="Upload Status"
             current={summary.uploaded}
-            total={summary.summarized}
+            total={summary.collected}
             color="bg-indigo-500"
           />
         </div>

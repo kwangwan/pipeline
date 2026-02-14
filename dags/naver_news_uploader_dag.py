@@ -24,7 +24,45 @@ SEARCH_API_BASE = "https://api.proj.run"
 SEARCH_API_KEY = os.getenv("SEARCH_API_KEY")
 SEARCH_CATEGORY_ID = os.getenv("SEARCH_CATEGORY_ID")
 
-def upload_summarized_articles(**kwargs):
+def chunk_content(content, max_length=2000):
+    """
+    Splits content into chunks of max_length.
+    Preserves line breaks where possible.
+    If a single line exceeds max_length, it is split rigidly.
+    """
+    if not content:
+        return []
+
+    chunks = []
+    current_chunk = ""
+    lines = content.split('\n')
+
+    for line in lines:
+        # +1 for the newline character that would be added
+        if len(current_chunk) + len(line) + 1 > max_length:
+            if current_chunk:
+                chunks.append(current_chunk)
+                current_chunk = ""
+            
+            # If the line itself is longer than max_length, split it hard
+            if len(line) > max_length:
+                for i in range(0, len(line), max_length):
+                    chunks.append(line[i:i+max_length])
+            else:
+                current_chunk = line
+        else:
+            if current_chunk:
+                current_chunk += "\n" + line
+            else:
+                current_chunk = line
+    
+    if current_chunk:
+        chunks.append(current_chunk)
+    
+    return chunks
+
+
+def upload_articles(**kwargs):
     if not SEARCH_API_KEY or not SEARCH_CATEGORY_ID:
         logger.error("SEARCH_API_KEY or SEARCH_CATEGORY_ID not set in environment.")
         return
@@ -43,18 +81,19 @@ def upload_summarized_articles(**kwargs):
 
     while True:
         try:
-            # Select articles that have a summary but no doc_id
+            # Select articles that are COMPLETED (content exists) but no doc_id
             select_sql = """
                 WITH locked_rows AS (
                     SELECT id
                     FROM naver_news_articles
-                    WHERE summary IS NOT NULL
+                    WHERE collection_status = 'COMPLETED'
                       AND doc_id IS NULL
+                      AND content IS NOT NULL
                     ORDER BY article_date DESC NULLS LAST
                     LIMIT %s
                     FOR UPDATE SKIP LOCKED
                 )
-                SELECT a.id, a.summary, a.title, a.original_url, a.publisher, a.article_date
+                SELECT a.id, a.content, a.title, a.original_url, a.publisher, a.article_date
                 FROM naver_news_articles a
                 JOIN locked_rows lr ON a.id = lr.id;
             """
@@ -68,58 +107,73 @@ def upload_summarized_articles(**kwargs):
 
             logger.info(f"Retrieved {len(rows)} articles for upload.")
             
-            for article_id, summary, title, original_url, publisher, article_date in rows:
+            for article_id, content, title, original_url, publisher, article_date in rows:
                 try:
-                    # Prepare payload
-                    # Content is limited to 2000 chars (summary is already limited in summarizer)
-                    
-                    # article_date is naive but represents KST. Add timezone info for correct API interpretation.
-                    formatted_date = None
-                    if article_date:
-                        # Add KST timezone (+09:00) then convert to UTC
-                        kst_date = article_date.replace(tzinfo=timezone(timedelta(hours=9)))
-                        utc_date = kst_date.astimezone(timezone.utc)
-                        formatted_date = utc_date.isoformat()
+                    chunks = chunk_content(content, max_length=2000)
+                    first_doc_id = None
+                    all_chunks_uploaded = True
 
-                    payload = {
-                        "categoryId": SEARCH_CATEGORY_ID,
-                        "content": summary,
-                        "metadata": {
-                            "id": article_id,
-                            "title": title,
-                            "original_url": original_url,
-                            "publisher": publisher
-                        },
-                        "date": formatted_date
-                    }
+                    logger.info(f"Uploading article {article_id} in {len(chunks)} chunks.")
 
-                    # Call Search API
-                    response = requests.post(
-                        f"{SEARCH_API_BASE}/documents",
-                        json=payload,
-                        headers=headers,
-                        timeout=30
-                    )
-                    
-                    if response.status_code == 200:
-                        result = response.json()
-                        doc_id = result.get("docId")
+                    for i, chunk in enumerate(chunks):
+                        # article_date is naive but represents KST. Add timezone info for correct API interpretation.
+                        formatted_date = None
+                        if article_date:
+                            # Add KST timezone (+09:00) then convert to UTC
+                            kst_date = article_date.replace(tzinfo=timezone(timedelta(hours=9)))
+                            utc_date = kst_date.astimezone(timezone.utc)
+                            formatted_date = utc_date.isoformat()
+
+                        payload = {
+                            "categoryId": SEARCH_CATEGORY_ID,
+                            "content": chunk,
+                            "metadata": {
+                                "id": article_id,
+                                "title": title, # Title is repeated for each chunk, which is fine for search index
+                                "original_url": original_url,
+                                "publisher": publisher,
+                                "chunk_index": i,
+                                "total_chunks": len(chunks)
+                            },
+                            "date": formatted_date
+                        }
+
+                        # Call Search API
+                        response = requests.post(
+                            f"{SEARCH_API_BASE}/documents",
+                            json=payload,
+                            headers=headers,
+                            timeout=30
+                        )
                         
-                        if doc_id:
-                            update_sql = """
-                                UPDATE naver_news_articles
-                                SET doc_id = %s
-                                WHERE id = %s
-                            """
-                            cursor.execute(update_sql, (doc_id, article_id))
-                            conn.commit()
-                            logger.info(f"Uploaded article {article_id} -> docId: {doc_id}")
+                        if response.status_code == 200:
+                            result = response.json()
+                            uploaded_doc_id = result.get("docId") or result.get("id") # Handle potential API response variation
+                            
+                            if i == 0:
+                                first_doc_id = uploaded_doc_id
+                            
+                            logger.info(f"Uploaded chunk {i+1}/{len(chunks)} for article {article_id}")
                         else:
-                            logger.error(f"Search API returned success but no docId for {article_id}")
-                            conn.rollback()
+                            logger.error(f"Search API error for {article_id} chunk {i}: {response.status_code} - {response.text}")
+                            all_chunks_uploaded = False
+                            break # Stop uploading remaining chunks if one fails
+                    
+                    if all_chunks_uploaded and first_doc_id:
+                        update_sql = """
+                            UPDATE naver_news_articles
+                            SET doc_id = %s
+                            WHERE id = %s
+                        """
+                        cursor.execute(update_sql, (first_doc_id, article_id))
+                        # Commit is handled at the end of logic or could be here? 
+                        # Original code committed per article. Let's stick to that pattern but maybe batch commits are better?
+                        # For safety, per article commit is fine for this scale.
+                        conn.commit()
+                        logger.info(f"Successfully uploaded all chunks for article {article_id}. Set doc_id to {first_doc_id}")
                     else:
-                        logger.error(f"Search API error for {article_id}: {response.status_code} - {response.text}")
-                        conn.rollback()
+                        logger.error(f"Failed to upload all chunks for article {article_id}. Rolled back.")
+                        conn.rollback() # Rollback DB transaction (though passed API calls can't be rolled back)
 
                 except Exception as e:
                     logger.error(f"Error uploading {article_id}: {e}")
@@ -136,7 +190,7 @@ def upload_summarized_articles(**kwargs):
 with DAG(
     'naver_news_uploader_dag',
     default_args=default_args,
-    description='Upload summarized articles to Search API',
+    description='Upload full articles to Search API',
     schedule_interval='*/5 * * * *', 
     catchup=False,
     max_active_runs=1,
@@ -145,6 +199,6 @@ with DAG(
 
     upload_task = PythonOperator(
         task_id='upload_articles_batch',
-        python_callable=upload_summarized_articles,
+        python_callable=upload_articles,
         provide_context=True,
     )
