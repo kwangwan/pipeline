@@ -26,7 +26,8 @@ def build_filter_clause(
     publisher: Optional[str] = None,
     section: Optional[str] = None,
     start_date: Optional[str] = None,
-    end_date: Optional[str] = None
+    end_date: Optional[str] = None,
+    date_field: str = "created_at"
 ) -> (str, Dict[str, Any]):
     conditions = []
     params = {}
@@ -38,11 +39,11 @@ def build_filter_clause(
         conditions.append("section_id1 = :section")
         params["section"] = section
     if start_date:
-        conditions.append("created_at >= :start_date")
+        conditions.append(f"{date_field} >= :start_date")
         params["start_date"] = start_date
     if end_date:
         # Assuming end_date encompasses the whole day, add 1 day or use <= combined with time
-        conditions.append("created_at <= :end_date")
+        conditions.append(f"{date_field} <= :end_date")
         params["end_date"] = end_date
 
     clause = " AND ".join(conditions)
@@ -50,10 +51,11 @@ def build_filter_clause(
         clause = "WHERE " + clause
     else:
         # Default time window if no specific date range is provided to avoid querying everything
-        if not start_date and not end_date:
+        # Applying default only if using created_at to avoid confusion with historical data
+        if not start_date and not end_date and date_field == "created_at":
              clause = "WHERE created_at >= NOW() - INTERVAL '30 days'"
         else:
-             clause = "" # start or end provided, trust the user input
+             clause = "" # start or end provided, or using article_date, trust the input
     
     return clause, params
 
@@ -91,18 +93,19 @@ def get_summary(
 @app.get("/stats/trend")
 def get_trend(
     period: str = Query("daily", enum=["daily", "hourly"]), 
+    date_field: str = Query("created_at", enum=["created_at", "article_date"]),
     publisher: Optional[str] = None,
     section: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    where_clause, params = build_filter_clause(publisher, section, start_date, end_date)
+    where_clause, params = build_filter_clause(publisher, section, start_date, end_date, date_field)
     
     trunc_date = 'hour' if period == 'hourly' else 'day'
     
     query = text(f"""
-        SELECT date_trunc(:trunc, created_at) as time, count(*) 
+        SELECT date_trunc(:trunc, {date_field}) as time, count(*) 
         FROM naver_news_articles 
         {where_clause}
         GROUP BY time 

@@ -22,15 +22,20 @@
    ```bash
    echo "AIRFLOW_UID=$(id -u)" > .env
    ```
-3. 서비스 빌드 및 시작 (커스텀 Airflow 이미지 포함):
+3. 서비스 빌드 및 시작 (커스텀 Airflow 이미지 및 **Ollama** 포함):
    ```bash
-   docker-compose up -d --build
+   docker compose up -d --build
    ```
-4. Airflow 웹 UI 접속: [http://localhost:8080](http://localhost:8080)
+4. **Ollama 모델 다운로드 (필수)**:
+   ```bash
+   docker exec -it pipeline-ollama-1 ollama pull gemma3:4b
+   ```
+5. Airflow 웹 UI 접속: [http://localhost:8080](http://localhost:8080)
    - **ID**: `airflow`
    - **PW**: `airflow`
-5. 뉴스 데이터 대시보드 접속: [http://localhost:3000](http://localhost:3000)
-   - 수집된 기사 통계 및 트렌드를 시각적으로 확인할 수 있으며, **실패한 기사들을 일괄 초기화**하여 재수집할 수 있는 기능을 포함합니다.
+6. 뉴스 데이터 대시보드 접속: [http://localhost:3000](http://localhost:3000)
+   - 수집된 기사의 요약문과 통계를 확인할 수 있습니다.
+   - **시계열 전환**: 데이터 수집 시간(`Created At`) 또는 기사 발행 시간(`Article Date`) 기준으로 차트를 전환하여 볼 수 있습니다.
 
 ---
 
@@ -82,9 +87,19 @@
 - **동작**: 수집된 기사 목록 중 본문이 없는 기사를 찾아 내용을 수집합니다.
 - **주요 특징**:
     - **연속 수집**: 한 번 실행되면 대기 중인(`PENDING`) 모든 기사를 처리할 때까지 멈추지 않고 동작합니다. 더 이상 처리할 기사가 없으면 종료됩니다.
-    - **동시 실행 제한**: 최대 **2개**의 수집 인스턴스(봇)만 동시에 실행되도록 설정되어 리소스를 효율적으로 사용합니다.
+    - **즉시 연동**: 수집이 완료되면 즉시 `naver_news_summarizer_dag`를 트리거하여 실시간으로 요약이 시작되도록 설계되었습니다.
     - **Trafilatura**: 고성능 본문 추출 라이브러리를 사용하여 정확한 내용을 수집합니다.
     - **동시성 제어**: `FOR UPDATE SKIP LOCKED`를 사용하여 중복 처리 없이 안전한 병렬 작업이 가능합니다.
+
+#### 4. 기사 요약 (Article Summarizer)
+- **DAG ID**: `naver_news_summarizer_dag`
+- **동작**: 본문 수집이 완료된 기사를 대상으로 **Gemma 3** 모델을 사용하여 요약을 생성합니다.
+- **주요 특징**:
+    - **실시간 처리**: 본문 수집 DAG가 완료되는 즉시 트리거되어 기사를 요약합니다.
+    - **연속 동작**: 처리해야 할 기사가 남아 있을 경우 루프를 돌며 즉시 요약을 이어나갑니다.
+    - **Ollama**: 로컬 LLM 서버인 Ollama를 활용하여 외부 API 키 없이 요약을 수행합니다.
+    - **언어 일치**: 원문이 한국어면 한국어 요약, 영어면 영어 요약을 생성합니다.
+    - **글자 수 제약**: 최대 2000자 이내로 요약하며, 사용된 모델 정보를 함께 기록합니다.
 
 ---
 
@@ -93,9 +108,13 @@
     - `naver_news_crawler_scheduled.py`: 정기 수집 DAG
     - `naver_news_crawler_backfill.py`: 과거 데이터 수집 DAG
     - `naver_news_content_collector_dag.py`: 본문 수집 DAG
+    - `naver_news_summarizer_dag.py`: 기사 요약 DAG
 - `dashboard-backend/`: 대시보드 백엔드 API (FastAPI)
 - `dashboard-frontend/`: 대시보드 프론트엔드 (React + Vite)
-- `plugins/`: 커스텀 파이썬 모듈 및 유틸리티 (`naver_news_crawler_utils.py` - 공통 크롤링 로직)
-- `logs/`: 태스크 실행 로그.
-- `postgres_data/`: Postgres 데이터 영구 저장소 (Git 제외).
-- `docker-compose.yaml`: 전체 인프라 정의.
+- `prisma/`: Prisma ORM 설정 및 데이터베이스 스키마
+- `plugins/`: 커스텀 파이썬 모듈 및 유틸리티 (`naver_news_crawler_utils.py`)
+- `docker-compose.yaml`: 전체 서비스 인프라 정의 (Ollama 포함)
+- `Dockerfile.airflow`: 커스텀 Airflow 이미지 빌드 정의
+- `postgres_data/`: Postgres 데이터 영구 저장소
+- `ollama_data/`: Ollama 모델 데이터 저장소
+- `logs/`: Airflow 태스크 로그

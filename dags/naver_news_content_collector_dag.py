@@ -129,6 +129,8 @@ def collect_news_content(**kwargs):
     cursor.close()
     conn.close()
 
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+
 with DAG(
     'naver_news_content_collector_dag',
     default_args=default_args,
@@ -144,3 +146,11 @@ with DAG(
         python_callable=collect_news_content,
         provide_context=True,
     )
+
+    trigger_summarizer = TriggerDagRunOperator(
+        task_id='trigger_naver_news_summarizer',
+        trigger_dag_id='naver_news_summarizer_dag',
+        wait_for_completion=False,
+    )
+
+    collect_task >> trigger_summarizer

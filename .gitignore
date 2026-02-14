@@ -6,3 +6,4 @@ __pycache__/
 .ipynb_checkpoints/
 .DS_Store
 postgres_data/
+ollama_data/

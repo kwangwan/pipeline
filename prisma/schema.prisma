@@ -21,6 +21,8 @@ model naver_news_articles {
   collection_status String?   @default("PENDING") @db.VarChar(20)
   locked_at         DateTime? @db.Timestamp(6)
   fail_reason       String?
+  summary           String?
+  summary_model     String?   @db.VarChar(100)
 }
 
 model ab_permission {

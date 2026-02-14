@@ -59,6 +59,7 @@ function Dashboard() {
   const [selectedSection, setSelectedSection] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [dateField, setDateField] = useState<'created_at' | 'article_date'>('created_at')
 
   useEffect(() => {
     fetchFilters()
@@ -66,7 +67,7 @@ function Dashboard() {
 
   useEffect(() => {
     fetchData()
-  }, [period, selectedPublisher, selectedSection, startDate, endDate])
+  }, [period, selectedPublisher, selectedSection, startDate, endDate, dateField])
 
   const fetchFilters = async () => {
       try {
@@ -85,9 +86,12 @@ function Dashboard() {
       if (startDate) params.append('start_date', startDate)
       if (endDate) params.append('end_date', endDate)
 
-      const queryString = params.toString()
+      const trendParams = new URLSearchParams(params)
+      trendParams.append('date_field', dateField)
 
-      axios.get(`${API_Base}/stats/trend?${queryString}`).then(res => setTrendData(res.data))
+      axios.get(`${API_Base}/stats/trend?${trendParams.toString()}`).then(res => setTrendData(res.data))
+      
+      const queryString = params.toString()
       axios.get(`${API_Base}/stats/publisher?${queryString}`).then(res => setPublisherData(res.data))
       axios.get(`${API_Base}/stats/section?${queryString}`).then(res => setSectionData(res.data))
       axios.get(`${API_Base}/stats/summary?${queryString}`).then(res => setSummary(res.data))
@@ -102,7 +106,7 @@ function Dashboard() {
     }),
     datasets: [
       {
-        label: 'Articles Collected',
+        label: dateField === 'article_date' ? 'Articles (by Published Date)' : 'Articles (by Collected Date)',
         data: trendData.map((d) => d.count),
         borderColor: '#38bdf8',
         backgroundColor: 'rgba(56, 189, 248, 0.5)',
@@ -249,7 +253,25 @@ function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Trend Chart */}
         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg lg:col-span-2">
-            <h2 className="text-xl font-semibold mb-4 text-slate-200">Collection Trend</h2>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <h2 className="text-xl font-semibold text-slate-200">
+                    {dateField === 'article_date' ? 'Article Publication Trend' : 'Data Collection Trend'}
+                </h2>
+                <div className="flex bg-slate-700 p-1 rounded-lg">
+                    <button 
+                        onClick={() => setDateField('created_at')}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${dateField === 'created_at' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}
+                    >
+                        Created At
+                    </button>
+                    <button 
+                        onClick={() => setDateField('article_date')}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${dateField === 'article_date' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}
+                    >
+                        Article Date
+                    </button>
+                </div>
+            </div>
             <div className="h-64 sm:h-80">
                 <Line 
                     data={trendChartData} 
