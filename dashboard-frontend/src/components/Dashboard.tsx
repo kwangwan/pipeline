@@ -49,6 +49,19 @@ interface SummaryStats {
     uploaded: number
 }
 
+const SECTION_MAP: Record<string, string> = {
+  "100": "정치",
+  "101": "경제",
+  "102": "사회",
+  "103": "생활/문화",
+  "104": "세계",
+  "105": "IT/과학"
+};
+
+function getSectionName(id: string) {
+    return SECTION_MAP[id] || id
+}
+
 function Dashboard() {
   const [trendData, setTrendData] = useState<StatItem[]>([])
   const [publisherData, setPublisherData] = useState<StatItem[]>([])
@@ -147,7 +160,7 @@ function Dashboard() {
   }
 
     const sectionChartData = {
-    labels: sectionData.map((d) => d.section),
+    labels: sectionData.map((d) => getSectionName(d.section || '')),
     datasets: [
       {
         label: 'Articles by Section',
@@ -238,7 +251,7 @@ function Dashboard() {
                 onChange={(e) => setSelectedSection(e.target.value)}
               >
                   <option value="">All Sections</option>
-                  {filters.sections.map(s => <option key={s} value={s}>{s}</option>)}
+                  {filters.sections.map(s => <option key={s} value={s}>{getSectionName(s)}</option>)}
               </select>
           </div>
           <button 
