@@ -28,6 +28,8 @@
    - `SUMMARIZER_BATCH_SIZE`: 한 번에 요약할 기사 수 (기본값: `3`)
    - `CONTENT_COLLECTOR_BATCH_SIZE`: 한 번에 수집할 본문 수 (기본값: `100`)
    - `CONTENT_COLLECTOR_MAX_ACTIVE_RUNS`: 본문 수집기 동시 실행 수 (기본값: `2`)
+   - `SEARCH_API_KEY`: Search API 인증 키
+   - `SEARCH_CATEGORY_ID`: 문서를 업로드할 카테고리 ID
 
 5. 서비스 빌드 및 시작 (커스텀 Airflow 이미지 및 **Ollama** 포함):
    - `.env` 파일에 필요한 설정(모델명, 배치 크기 등)을 확인하거나 수정합니다.
@@ -110,8 +112,9 @@
     - **Ollama**: 로컬 LLM 서버인 Ollama를 활용하여 외부 API 키 없이 요약을 수행합니다.
     - **언어 일치**: 원문이 한국어면 한국어 요약, 영어면 영어 요약을 생성합니다.
     - **글자 수 제약**: 최대 2000자 이내로 요약하며, 사용된 모델 정보를 함께 기록합니다.
-113: 
-114: #### 5. 검색 API 업로드 (Article Uploader)
+
+#### 5. 검색 API 업로드 (Article Uploader)
+- **DAG ID**: `naver_news_uploader_dag`
 115: - **DAG ID**: `naver_news_uploader_dag`
 116: - **동작**: 요약이 완료된 기사를 외부 **Project RAG** 검색 API로 자동으로 업로드합니다.
 117: - **주요 특징**:
