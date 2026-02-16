@@ -127,10 +127,10 @@ def upload_articles(**kwargs):
                         payload = {
                             "categoryId": SEARCH_CATEGORY_ID,
                             "content": chunk,
+                            "title": title,
+                            "url": original_url,
                             "metadata": {
                                 "id": article_id,
-                                "title": title, # Title is repeated for each chunk, which is fine for search index
-                                "original_url": original_url,
                                 "publisher": publisher,
                                 "chunk_index": i,
                                 "total_chunks": len(chunks)

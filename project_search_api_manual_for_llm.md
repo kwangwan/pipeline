@@ -19,10 +19,12 @@ Creates a container for documents. Categories can be private or public.
     ```json
     {
       "name": "My Knowledge Base",
-      "visibility": "private" 
+      "visibility": "private",
+      "store_content": true
     }
     ```
     - `visibility`: `"public"` (default) or `"private"`.
+    - `store_content`: (Optional) `true` (default) or `false`. If `false`, the original text content is not stored in R2 (only embeddings are generated) to minimize storage and enhance privacy.
 - **Response**:
     ```json
     { "id": "uuid", "name": "...", "visibility": "..." }
@@ -37,10 +39,14 @@ Uploads text content for embedding.
     {
       "categoryId": "<CATEGORY_ID>",
       "content": "Full text content...",
+      "title": "Document Title",
+      "url": "https://example.com/doc",
       "metadata": { "source": "url", "tags": ["a", "b"] },
       "date": "2023-11-01"
     }
     ```
+    - `title`: (Optional) Document title for better search visibility.
+    - `url`: (Optional) Original source URL.
     - `date`: (Optional) ISO 8601 string or Unix timestamp. Defaults to now.
 - **Constraints**:
     - `content`: Max **2000 characters**.
@@ -67,6 +73,8 @@ Lists documents in a specific category. Supports pagination, sorting, and search
         {
           "id": "doc_uuid",
           "content": "Snippet...",
+          "title": "Document Title",
+          "url": "https://example.com/doc",
           "status": "indexed",
           "metadataCount": 5,
           "createdAt": 1700000000,
@@ -150,6 +158,7 @@ Deletes a document by ID.
 Performs semantic search across documents using a **Hybrid Search Strategy**:
 - **Scoped Search**: When `userIds` or `categoryIds` are provided, the system uses exact SQL filtering for **100% accuracy**.
 - **Global Search**: When searching across all public data, it uses high-performance DiskANN indexing.
+- **Reranking**: Results are reranked using **Vector (70%) + Title(15%)/Snippet(5%) Keywords + Category(10%) + Trust(5%)** scoring, with penalties for low-quality content.
 
 - **Endpoint**: `POST /query`
 - **Body**:
@@ -178,6 +187,8 @@ Performs semantic search across documents using a **Hybrid Search Strategy**:
           "id": "doc_uuid",
           "score": 0.89,
           "snippet": "First 200 characters of the document...",
+          "title": "Document Title",
+          "url": "https://example.com/doc",
           "metadataCount": 3,
           "userId": "user_uuid",
           "username": "alice",
@@ -212,7 +223,8 @@ HEADERS = {"Authorization": "Bearer <API_KEY>"}
 # 1. Create a Category
 cat = requests.post(f"{API_BASE}/categories", json={
     "name": "My Knowledge Base",
-    "visibility": "private"
+    "visibility": "private",
+    "store_content": True # Set to False for vector-only storage (Storage Minimization)
 }, headers=HEADERS).json()
 cat_id = cat["id"]
 print(f"Category created: {cat_id}")
@@ -221,6 +233,8 @@ print(f"Category created: {cat_id}")
 doc = requests.post(f"{API_BASE}/documents", json={
     "categoryId": cat_id,
     "content": "Project RAG is a powerful serverless RAG platform built on Cloudflare.",
+    "title": "Project RAG Overview",
+    "url": "https://github.com/your/repo",
     "metadata": {"source": "manual", "tags": ["tech", "rag"]},
     "date": "2023-11-01"
 }, headers=HEADERS).json()
