@@ -31,7 +31,11 @@ def get_headers():
     }
 
 def get_article_id(url):
-    return hashlib.sha256(url.encode('utf-8')).hexdigest()
+    if not url:
+        return None
+    # '?' 뒤의 파라미터와 '#' 뒤의 프래그먼트를 제거하여 순수 기사 경로만 추출 (정규화)
+    clean_url = url.split('?')[0].split('#')[0]
+    return hashlib.sha256(clean_url.encode('utf-8')).hexdigest()
 
 def fetch_article_list(sid, sid2, date, next_cursor=None, page_no=1):
     params = {
