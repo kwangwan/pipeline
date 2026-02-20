@@ -3,6 +3,7 @@ import logging
 import json
 import requests
 import os
+import pytz
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
@@ -79,7 +80,15 @@ def upload_articles(**kwargs):
         "Content-Type": "application/json"
     }
 
+    kst = pytz.timezone('Asia/Seoul')
+
     while True:
+        # Check if current time is within 10:00 AM - 10:00 PM KST
+        now_kst = datetime.now(kst)
+        if not (10 <= now_kst.hour < 22):
+            logger.info(f"Current time {now_kst.strftime('%H:%M:%S')} KST is outside the window (10 AM - 10 PM). Stopping batch.")
+            break
+
         try:
             # Select articles that are COMPLETED (content exists) but no doc_id
             select_sql = """
@@ -191,7 +200,7 @@ with DAG(
     'naver_news_uploader_dag',
     default_args=default_args,
     description='Upload full articles to Search API',
-    schedule_interval='*/5 * * * *', 
+    schedule_interval='*/5 10-21 * * *', 
     catchup=False,
     max_active_runs=1,
     tags=['news', 'search', 'upload'],
