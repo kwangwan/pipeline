@@ -2,6 +2,8 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.models.param import Param
+import pytz
+import time
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '../plugins'))
@@ -23,6 +25,38 @@ default_args = {
     'retries': 0,
 }
 
+def wait_if_outside_window():
+    """
+    Check if the current time is within 10:00 AM - 10:00 PM KST.
+    If not, sleep until the next 10:00 AM KST.
+    """
+    kst = pytz.timezone('Asia/Seoul')
+    
+    while True:
+        now_kst = datetime.now(kst)
+        hour = now_kst.hour
+        
+        # Window: 10:00:00 to 21:59:59 (10 AM to 10 PM)
+        if 10 <= hour < 22:
+            logger.info(f"Current time {now_kst.strftime('%Y-%m-%d %H:%M:%S')} is within the window. Proceeding.")
+            break
+        
+        # Calculate when the next 10:00 AM is
+        if hour >= 22:
+            # Tomorrow 10 AM
+            next_start = (now_kst + timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
+        else:
+            # Today 10 AM
+            next_start = now_kst.replace(hour=10, minute=0, second=0, microsecond=0)
+            
+        wait_seconds = (next_start - now_kst).total_seconds()
+        logger.info(f"Current time {now_kst.strftime('%Y-%m-%d %H:%M:%S')} is OUTSIDE the window (10:00-22:00 KST).")
+        logger.info(f"Pausing execution. Will resume at {next_start.strftime('%Y-%m-%d %H:%M:%S')} (in {wait_seconds/3600:.2f} hours).")
+        
+        # Sleep in chunks or at once. For long waits, sleep in 10-minute chunks to stay responsive to Airflow if needed.
+        # But for simplicity, we sleep the whole duration.
+        time.sleep(wait_seconds + 5) # Buffer 5 seconds
+
 def crawl_backfill(**kwargs):
     params = kwargs.get('params', {})
     start_date_str = params.get('start_date')
@@ -40,6 +74,9 @@ def crawl_backfill(**kwargs):
     # Generate list of dates from end_date down to start_date
     current_date = end_date
     while current_date >= start_date:
+        # Check time window before each date
+        wait_if_outside_window()
+        
         target_date_str = current_date.strftime('%Y%m%d')
         logger.info(f"Backfill crawl for {target_date_str}")
         
